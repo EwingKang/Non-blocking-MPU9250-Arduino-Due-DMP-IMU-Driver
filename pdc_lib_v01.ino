@@ -1,3 +1,14 @@
+/*****************************************************************************
+* [I2C DMA]
+* 		https://forum.arduino.cc/index.php?topic=605127.0
+* [I2C + DMA]
+* 		https://forum.arduino.cc/index.php?topic=152643.0
+* [Interrupt misconception on Due (ATSAM3X)]
+* 		https://forum.arduino.cc/index.php?topic=621506.0
+* [Hanging I2C on DUE, SDA Low SCL High permanent]
+* 		https://forum.arduino.cc/index.php?topic=288573.0
+******************************************************************************/
+
 #include <Arduino.h>
 #include "pdc_twi.hpp"
 
