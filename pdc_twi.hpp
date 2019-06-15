@@ -22,6 +22,7 @@ public:
 	byte rxdata;
 	
 	void Init() {
+		BusReset();
 		pmc_enable_periph_clk(WIRE_INTERFACE_ID);
 		PIO_Configure(
 					   g_APinDescription[PIN_WIRE_SDA].pPort,
@@ -34,34 +35,31 @@ public:
 					   g_APinDescription[PIN_WIRE_SCL].ulPin,
 					   g_APinDescription[PIN_WIRE_SCL].ulPinConfiguration);
 
+		// setup vector interrupt controller
 		NVIC_DisableIRQ(TWI1_IRQn);
 		NVIC_ClearPendingIRQ(TWI1_IRQn);
 		NVIC_SetPriority(TWI1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 3, 3));
 		NVIC_EnableIRQ(TWI1_IRQn);
-
-		// Disable PDC channel
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
-
-		TWI_ConfigureMaster(WIRE_INTERFACE, TWI_CLOCK, VARIANT_MCK);
+		
+		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;	// Disable PDC channel
+		TWI_ConfigureMaster(WIRE_INTERFACE, TWI_CLOCK, VARIANT_MCK);	// set to master mode
 		
 		mode = PdcTwoWireMode::MODE_STDBY;
-		mst_tx_status = PdcTwoWireStatus::PDC_OFF;
-		mst_rx_status = PdcTwoWireStatus::PDC_OFF;
-		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;	// disable all interrupts
+		master_state = PdcTwoWireStatus::PDC_OFF;
+		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 	}
 
-	/******************************************************
-		Public access
-	*******************************************************/
+	/****************************************************************
+						Public read/write access
+		[MMR] Master Mode register (p.719)
+		[IADR] Internal ADdress Register, for non-7 bit I2C device
+		       (p.713)
+	*****************************************************************/
 	void WriteTo(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) {
 		if(len == 0) return;
 		mode = PdcTwoWireMode::MASTER_SEND;
-			
 		if( len == 1) {
-			mst_tx_status = PdcTwoWireStatus::PDC_SINGLE_TX;
-			//_tx_started = false;
-			//p.719
-			//MMR: Master Mode register
+			master_state = PdcTwoWireStatus::PDC_SINGLE_TX;			
 			// P.713 IADR is for extended addressing for non-7 bit address
 			WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 			WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
@@ -72,10 +70,10 @@ public:
 			WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP | TWI_IER_NACK;	
 			return;
 		}else {
-			//p.718 start
+			//p.718 start PDC procedure
 			SetPdcWriteAddr(data_ptr, len);
 			SetTwiMasterWrite(dev_addr);
-			mst_tx_status = PdcTwoWireStatus::PDC_RUNNING;
+			master_state = PdcTwoWireStatus::PDC_MULTI_TX;
 			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTEN;					// enable TX
 			WIRE_INTERFACE->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;	// interrupt enable register
 		}
@@ -86,8 +84,8 @@ public:
 		mode = PdcTwoWireMode::MASTER_RECV;
 		_rx_stop_set = false;
 		if( len == 1) {
-			// p.722 & p.715
-			mst_rx_status = PdcTwoWireStatus::PDC_SINGLE_RX;
+			// p.722 & p.715 procedure
+			master_state = PdcTwoWireStatus::PDC_SINGLE_RX;
 			WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
 			WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
 			WIRE_INTERFACE->TWI_CR = TWI_CR_START | TWI_CR_STOP;
@@ -95,7 +93,7 @@ public:
 		}else {
 			SetPdcReadAddr(data_ptr, len);
 			SetTwiMasterRead(dev_addr);
-			mst_rx_status = PdcTwoWireStatus::PDC_RUNNING;
+			master_state = PdcTwoWireStatus::PDC_MULTI_RX;
 			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTEN;
 			WIRE_INTERFACE->TWI_CR = TWI_CR_START;
 			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
@@ -103,62 +101,50 @@ public:
 	}
 	
 	bool TxComplete() {
-		if( mst_tx_status == PdcTwoWireStatus::PDC_SUCCESS ) return true;
+		if( master_state == PdcTwoWireStatus::PDC_TX_SUCCESS ) return true;
 		else return false;
 	}
 	bool RxComplete() {
-		if( mst_rx_status == PdcTwoWireStatus::PDC_SUCCESS ) return true;
+		if( master_state == PdcTwoWireStatus::PDC_RX_SUCCESS ) return true;
 		else return false;
 	}
-	/*
-	bool TxRunning() {
-		if(( mst_tx_status == PdcTwoWireStatus::PDC_RUNNING) || ( mst_tx_status == PdcTwoWireStatus::PDC_STDBY) 
-			|| ( mst_tx_status == PdcTwoWireStatus::PDC_SINGLE_TX)) {
-			return true;
-		}else { 	return false;	}
-	}
-	bool RxRunning() {
-		if(( mst_rx_status == PdcTwoWireStatus::PDC_RUNNING)  || ( mst_rx_status == PdcTwoWireStatus::PDC_STDBY)) {
-			return true;
-		}else{ return false;	}
-	}*/
-
-	/******************************************************
-		Set relative address and counter into PDC register
-	*******************************************************/
-	static inline int WriteTHR(uint8_t data) {
-		WIRE_INTERFACE->TWI_THR = data;
-		//WIRE_INTERFACE->TWI_THR = 0x00;
-	}
 	
+
+	/****************************************************************
+							Set PDC addresses
+		Set relative address and counter into PDC register
+		Note:
+			[PTCR] Peripheral Transfer Control Register
+			[TPR]/[RPR] Transmit/Receive Pointer Register
+			[TCR]/[RCR] Transmit/Receive Counter Register
+			[TNPR]/[RNPR] Transmit/Receive Next Pointer Register
+			[TNCR]/[RNCR] Transmit Next Pointer Counter
+	*****************************************************************/
 	static inline int SetPdcWriteAddr(uint8_t *data, uint16_t count) {
-		///TODO: add validation
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
-		WIRE_INTERFACE->TWI_TPR = (RwReg)data;		//Transmit Pointer Register
-		WIRE_INTERFACE->TWI_TCR = count;			//Transmit Counter Register
-		WIRE_INTERFACE->TWI_TNPR = 0;				//Transmit Next Pointer Register
-		WIRE_INTERFACE->TWI_TNCR = 0;				//Transmit Next Pointer Counter
-		mst_tx_status = PdcTwoWireStatus::PDC_STDBY;
-		mst_rx_status = PdcTwoWireStatus::PDC_NOTME;
+		WIRE_INTERFACE->TWI_TPR = (RwReg)data;		
+		WIRE_INTERFACE->TWI_TCR = count;
+		WIRE_INTERFACE->TWI_TNPR = 0;		
+		WIRE_INTERFACE->TWI_TNCR = 0;				
+		master_state = PdcTwoWireStatus::PDC_ADD_SET;
 	}
 	static inline int SetPdcReadAddr(uint8_t *data, uint16_t count) {
-		// seems like the last data will be move into the RHR, however, it will not 
-		// be moved by the PDC because the STOP is already set. This is quite weird.
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
-		WIRE_INTERFACE->TWI_RPR = (RwReg)data;		//Receive Pointer Register
-		WIRE_INTERFACE->TWI_RCR = count;			//Receive Couter Register
+		WIRE_INTERFACE->TWI_RPR = (RwReg)data;		
+		WIRE_INTERFACE->TWI_RCR = count;
 		WIRE_INTERFACE->TWI_RNPR = 0;
 		WIRE_INTERFACE->TWI_RNCR = 0;
-		mst_tx_status = PdcTwoWireStatus::PDC_NOTME;
-		mst_rx_status = PdcTwoWireStatus::PDC_STDBY;
+		master_state = PdcTwoWireStatus::PDC_ADD_SET;
 	}
 	
-	/******************************************************
-		Set TWI control mode
-	*******************************************************/
+	/***************************************************************
+							Set TWI control mode
+		Note:
+			MMR-Master Mode register
+			[P.713] IADR is only for extended addressing, i.e. 
+			non-7 bit I2C device address
+	****************************************************************/
 	static inline int SetTwiMasterWrite(uint8_t dev_addr) {
-		//MMR: Master Mode register
-		// P.713 IADR is for extended addressing for non-7 bit address
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 	}
@@ -168,7 +154,12 @@ public:
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
 	}
 
-	
+	/****************************************************************
+							ISR handling
+		Handles IRQ. Should be called in TWI1_Handler() in global 
+		scope.
+		Note:
+	*****************************************************************/
 	inline void IsrHandler() {
 		int sr = WIRE_INTERFACE->TWI_SR;
 		int rcr = WIRE_INTERFACE->TWI_RCR; // Receive Counter Register
@@ -176,21 +167,21 @@ public:
 		//Serial.println(sr, BIN);
 		
 		//============= SINGLE transmitting =============//
-		if(mst_tx_status == PdcTwoWireStatus::PDC_SINGLE_TX) {
+		if(master_state == PdcTwoWireStatus::PDC_SINGLE_TX) {
 			if (sr & TWI_SR_NACK){
 				// failed, no ack on I2C bus
-				mst_tx_status = PdcTwoWireStatus::PDC_FAILED;
+				master_state = PdcTwoWireStatus::PDC_TX_FAILED;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				Serial.println("txSclNAck");
 				return;
 			}
 			else if( sr & TWI_SR_TXCOMP) {
-					mst_tx_status = PdcTwoWireStatus::PDC_SUCCESS;
+					master_state = PdcTwoWireStatus::PDC_TX_SUCCESS;
 					WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 					Serial.println("txSglComp");
 					return;
 			}else {
-				mst_tx_status = PdcTwoWireStatus::PDC_FAILED;
+				master_state = PdcTwoWireStatus::PDC_TX_FAILED;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				Serial.println("txSglUNKwn");
 				return;
@@ -198,31 +189,31 @@ public:
 		}
 		
 		//============= SINGLE recieving =============//
-		if(mst_rx_status == PdcTwoWireStatus::PDC_SINGLE_RX) {
+		if(master_state == PdcTwoWireStatus::PDC_SINGLE_RX) {
 			if (sr & TWI_SR_NACK) {
 				// failed, no ack on I2C bus
-				mst_rx_status = PdcTwoWireStatus::PDC_FAILED;
+				master_state = PdcTwoWireStatus::PDC_RX_FAILED;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				Serial.println("txSclNAck");
 				return;
 			}
 			if( sr & TWI_SR_RXRDY) {
-				mst_rx_status = PdcTwoWireStatus::PDC_SUCCESS;
+				master_state = PdcTwoWireStatus::PDC_RX_SUCCESS;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				rxdata = WIRE_INTERFACE->TWI_RHR;
 				Serial.println("rxSglComp");
 				return;
 			}else {
-				mst_tx_status =  PdcTwoWireStatus::PDC_FAILED;
+				master_state =  PdcTwoWireStatus::PDC_RX_FAILED;
 				Serial.println("rxSglNotTxComp");
 				return;
 			}
 		}
 		
 		//============= MULTI transmitting =============//
-		if(mst_tx_status == PdcTwoWireStatus::PDC_RUNNING) {
+		if(master_state == PdcTwoWireStatus::PDC_MULTI_TX) {
 			if (sr & TWI_SR_NACK){			// No ack, probably something is disconnected
-				mst_tx_status = PdcTwoWireStatus::PDC_FAILED;
+				master_state = PdcTwoWireStatus::PDC_TX_FAILED;
 				WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
@@ -230,9 +221,9 @@ public:
 				return;
 			}
 			if( sr & TWI_SR_TXCOMP) {
-				mst_tx_status = PdcTwoWireStatus::PDC_SUCCESS;
+				master_state = PdcTwoWireStatus::PDC_TX_SUCCESS;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// Peripheral Transfer Counter Register
+				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
 				Serial.println("txComp");
 				return;
 			}
@@ -253,9 +244,9 @@ public:
 		}
 		
 		//============= MULTI receiving =============//
-		if(mst_rx_status == PdcTwoWireStatus::PDC_RUNNING) {
+		if(master_state == PdcTwoWireStatus::PDC_MULTI_RX) {
 			if( sr & TWI_SR_NACK ) {			// no ack, when slave not response to initial address call
-				mst_rx_status = PdcTwoWireStatus::PDC_FAILED;
+				master_state = PdcTwoWireStatus::PDC_RX_FAILED;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable pdc
 				Serial.println("rxNAck");
@@ -265,7 +256,7 @@ public:
 			//Serial.print("RCR: ");
 			//Serial.println(rcr);
 			if( sr & TWI_IER_ENDRX ) {
-				mst_rx_status = PdcTwoWireStatus::PDC_SUCCESS;
+				master_state = PdcTwoWireStatus::PDC_RX_SUCCESS;
 				if( !_rx_stop_set)	WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// Stop case missed
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
@@ -289,21 +280,64 @@ public:
 		//============= Uncatched interrupt =============//
 		Serial.print("Unknown ISR, SR: ");
 		Serial.println(sr, BIN);
-		Serial.print("tx_st: ");
-		Serial.print(mst_tx_status);
-		Serial.print(", rx st: ");
-		Serial.print(mst_rx_status);
+		Serial.print("status: ");
+		Serial.print(master_state);
 		Serial.print(", PTSR: ");		// PDC Transfer Status Register
 		Serial.println(WIRE_INTERFACE->TWI_PTSR, BIN);
 		
 		WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;							// make sure things is stooping
 		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
-		mst_tx_status = PdcTwoWireStatus::PDC_FAILED;
-		mst_rx_status = PdcTwoWireStatus::PDC_FAILED;
+		master_state = PdcTwoWireStatus::PDC_UNKOWN_FAILED;
 		return;
-	}	// IsrHandler
+	}	// IsrHandler()
 	
+	
+	
+	/****************************************************************
+							Reset
+		A hard, manual reset by BusReset() to clear slave pull down 
+		issue.
+	*****************************************************************/
+	void Reset()
+	{
+		uint32_t i;
+		
+		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDCs
+		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+		
+		// TWI software reset 
+		WIRE_INTERFACE->TWI_CR = TWI_CR_SWRST;
+		WIRE_INTERFACE->TWI_RHR;
+
+		// Wait at least 10 ms 
+		for (i=0; i < 1000000; i++);
+
+		// TWI Slave Mode Disabled, TWI Master Mode Disabled
+		WIRE_INTERFACE->TWI_CR = TWI_CR_SVDIS | TWI_CR_MSDIS;
+		
+		// Disable interrupts
+		NVIC_DisableIRQ(TWI1_IRQn);
+		NVIC_ClearPendingIRQ(TWI1_IRQn);
+		
+		BusReset();
+		master_state = PdcTwoWireStatus::PDC_UNINIT;
+	}
+	
+	void BusReset()
+	{
+		// Sent 9 pulses over CLK pin, should free-up any slave SDA hangs
+		pinMode(21, OUTPUT);
+		for (int i = 0; i < 9; i++) {
+			// I2C 100K Hz is ~10us per clock cycle. 
+			// The delay value gives ~84us/8 clk cycle
+			digitalWrite(21, HIGH);
+			delayMicroseconds(3);	
+			digitalWrite(21, LOW);
+			delayMicroseconds(3);
+		}
+		pinMode(21, INPUT);
+	}
 	
 private:
 	bool _rx_stop_set;
@@ -321,15 +355,19 @@ private:
 	enum PdcTwoWireStatus {
 		PDC_UNINIT,
 		PDC_OFF,
-		PDC_NOTME,
-		PDC_STDBY,
+		PDC_ADD_SET,
 		PDC_RUNNING,
 		PDC_SINGLE_TX,
 		PDC_SINGLE_RX,
-		PDC_SUCCESS,
-		PDC_FAILED
+		PDC_MULTI_TX,
+		PDC_MULTI_RX,
+		PDC_TX_SUCCESS,
+		PDC_RX_SUCCESS,
+		PDC_TX_FAILED,
+		PDC_RX_FAILED,
+		PDC_UNKOWN_FAILED
 	};
-	volatile static PdcTwoWireStatus mst_tx_status, mst_rx_status;  ///TODO: static is dirty 
+	volatile static PdcTwoWireStatus master_state;  ///TODO: static is dirty 
 	//static uint16_t rx_len;
 };	//class PdcTwi
 

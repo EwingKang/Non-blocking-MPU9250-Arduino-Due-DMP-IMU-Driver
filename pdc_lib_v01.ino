@@ -17,16 +17,16 @@
 #define DATA_LEN 6			// 6-byte
 
 PdcTwi i2c;
-volatile PdcTwi::PdcTwoWireStatus PdcTwi::mst_tx_status = PdcTwoWireStatus::PDC_UNINIT;
-volatile PdcTwi::PdcTwoWireStatus PdcTwi::mst_rx_status = PdcTwoWireStatus::PDC_UNINIT;
+volatile PdcTwi::PdcTwoWireStatus PdcTwi::master_state = PdcTwoWireStatus::PDC_UNINIT;
 
 void setup() {
 	SerialUSB.begin(115200);
 	Serial.begin(115200);
 	Serial.println("=========Start Dma test==========");
+	i2c.Init();
 	delay(2000);
 	
-	i2c.Init();
+	
 	
 	//============ test1: single write read ================
 	Serial.print("Test1 Start");
@@ -47,7 +47,11 @@ void setup() {
 	Serial.println("---------------------");
 	delay(2000);
 	
-	
+	/*//============ test2: reset all ================
+	Serial.println("Test2 Start");
+	Serial.println("Reset all");
+	i2c.Reset();
+	Serial.println("Reset done");*/
 	
 	//============ test2: multi write ================
 	Serial.println("Test2 Start");
@@ -95,8 +99,7 @@ void setup() {
 	Serial.println(us2);
 	/*long us3 = micros();
 	Serial.print(", t3:");
-	Serial.println(us3);
-	delay(500); */		
+	Serial.println(us3);*/	
 	Serial.println("---------------------");
 	delay(2000);
 	
@@ -108,7 +111,7 @@ uint8_t rtn2[10];
 uint8_t data0_addr = ADXL345_DATAX0;
 void loop() {
 	i++;
-	delay(2000);
+	delay(1000);
 	
 	// read accel data
 	i2c.WriteTo(ADXL234, &data0_addr, 1);
@@ -126,9 +129,7 @@ void loop() {
 	Serial.print(", ");
 	Serial.print((float)az*8/1024);
 	Serial.println("] ");
-	
 
-	
 }
 
 void TWI1_Handler() {
