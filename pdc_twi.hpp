@@ -35,7 +35,8 @@ public:
 		PDC_UNKOWN_FAILED
 	};
 		
-	void Init() {
+	void Init() 
+	{
 		BusReset();
 		pmc_enable_periph_clk(WIRE_INTERFACE_ID);
 		PIO_Configure(
@@ -68,7 +69,8 @@ public:
 		[IADR] Internal ADdress Register, for non-7 bit I2C device
 		       (p.713)
 	*****************************************************************/
-	void WriteTo(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) {
+	void WriteTo(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) 
+	{
 		if(len == 0) return;
 		if( len == 1) {
 			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;			
@@ -91,7 +93,8 @@ public:
 		}
 	}
 
-	void ReadFrom(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) {
+	void ReadFrom(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len)
+	{
 		if(len == 0) return;
 		_rx_stop_set = false;
 		if( len == 1) {
@@ -112,11 +115,13 @@ public:
 		}
 	}
 	
-	bool TxComplete() {
+	bool TxComplete() 
+	{
 		if( _comm_st == PdcTwoWireStatus::PDC_TX_SUCCESS ) return true;
 		else return false;
 	}
-	bool RxComplete() {
+	bool RxComplete() 
+	{
 		if( _comm_st == PdcTwoWireStatus::PDC_RX_SUCCESS ) return true;
 		else return false;
 	}
@@ -128,7 +133,8 @@ public:
 		scope.
 		Note:
 	*****************************************************************/
-	inline void IsrHandler() {
+	inline void IsrHandler() 
+	{
 		int sr = WIRE_INTERFACE->TWI_SR;
 		int rcr = WIRE_INTERFACE->TWI_RCR; // Receive Counter Register
 		//Serial.print("isr: ");
@@ -146,10 +152,10 @@ public:
 				return;
 			} else if( sr & TWI_SR_TXCOMP) 
 			{
-					_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
-					WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;		// disable all interrupts
-					//Serial.println("txSglComp");
-					return;
+				_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
+				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;		// disable all interrupts
+				//Serial.println("txSglComp");
+				return;
 			} else 
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_FAILED;
@@ -320,7 +326,6 @@ private:
 	volatile PdcTwoWireStatus _comm_st;  ///TODO: static is dirty 
 	byte *_rx_ptr;
 	
-	
 	/****************************************************************
 							Set PDC addresses
 		Set relative address and counter into PDC register
@@ -331,14 +336,16 @@ private:
 			[TNPR]/[RNPR] Transmit/Receive Next Pointer Register
 			[TNCR]/[RNCR] Transmit Next Pointer Counter
 	*****************************************************************/
-	static inline int SetPdcWriteAddr(uint8_t *data, uint16_t count) {
+	static inline int SetPdcWriteAddr(uint8_t *data, uint16_t count) 
+	{
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
 		WIRE_INTERFACE->TWI_TPR = (RwReg)data;		
 		WIRE_INTERFACE->TWI_TCR = count;
 		WIRE_INTERFACE->TWI_TNPR = 0;		
 		WIRE_INTERFACE->TWI_TNCR = 0;				
 	}
-	static inline int SetPdcReadAddr(uint8_t *data, uint16_t count) {
+	static inline int SetPdcReadAddr(uint8_t *data, uint16_t count) 
+	{
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
 		WIRE_INTERFACE->TWI_RPR = (RwReg)data;		
 		WIRE_INTERFACE->TWI_RCR = count;
@@ -353,11 +360,13 @@ private:
 			[P.713] IADR is only for extended addressing, i.e. 
 			non-7 bit I2C device address
 	****************************************************************/
-	static inline int SetTwiMasterWrite(uint8_t dev_addr) {
+	static inline int SetTwiMasterWrite(uint8_t dev_addr) 
+	{
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 	}
-	static inline int SetTwiMasterRead(uint8_t dev_addr) {
+	static inline int SetTwiMasterRead(uint8_t dev_addr) 
+	{
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
 	}
