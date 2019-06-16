@@ -28,7 +28,7 @@
 #define DATA_LEN 6			// 6-byte
 
 PdcTwi i2c;
-volatile PdcTwi::PdcTwoWireStatus PdcTwi::master_state = PdcTwoWireStatus::PDC_UNINIT;
+//volatile PdcTwi::PdcTwoWireStatus PdcTwi::master_state = PdcTwoWireStatus::PDC_UNINIT;
 
 void setup() {
 	SerialUSB.begin(115200);
@@ -54,7 +54,7 @@ void setup() {
 	while( !i2c.RxComplete() );
 	
 	Serial.print("Test1 rtn: ");
-	Serial.println(i2c.rxdata, HEX);
+	Serial.println(rtn, HEX);
 	Serial.println("---------------------");
 	delay(2000);
 	
@@ -90,7 +90,7 @@ void setup() {
 	i2c.WriteTo(ADXL234, &data0_addr, 1);
 	while( !i2c.TxComplete() );			// blocked while transfering
 	Serial.println("read");
-	i2c.ReadFrom(ADXL234, rtn1, 4);
+	i2c.ReadFrom(ADXL234, rtn1, 2);
 	long us1 = micros();
 	while( !i2c.RxComplete() );			// blocked while recieving
 	long us2 = micros();	
