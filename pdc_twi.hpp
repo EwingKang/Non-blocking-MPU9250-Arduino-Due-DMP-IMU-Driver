@@ -35,6 +35,10 @@ public:
 		PDC_UNKOWN_FAILED
 	};
 		
+	/****************************************************************
+							Init, Reset, End
+		A hard reset.
+	*****************************************************************/
 	void Init() 
 	{
 		BusReset();
@@ -61,6 +65,29 @@ public:
 		
 		_comm_st = PdcTwoWireStatus::PDC_OFF;
 		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+	}
+	
+	void Reset()
+	{
+		End();		//Disable TWI functions
+		
+		BusReset();
+		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
+		
+		Init();
+	}
+		
+	void End()
+	{
+		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDCs
+		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+		
+		NVIC_DisableIRQ(TWI1_IRQn);			// Disable interrupt control
+		NVIC_ClearPendingIRQ(TWI1_IRQn);
+		
+		TWI_Disable(WIRE_INTERFACE);		// This function will block for 10ms
+		BusReset();
+		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
 	}
 
 	/****************************************************************
@@ -276,51 +303,6 @@ public:
 	}	// IsrHandler()
 	
 	
-	/****************************************************************
-							Reset
-		A hard, manual reset by BusReset() to clear slave pull down 
-		issue.
-	*****************************************************************/
-	void Reset()
-	{
-		uint32_t i;
-		
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDCs
-		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-		
-		// TWI software reset 
-		WIRE_INTERFACE->TWI_CR = TWI_CR_SWRST;
-		WIRE_INTERFACE->TWI_RHR;
-
-		// Wait at least 10 ms 
-		for (i=0; i < 1000000; i++);
-
-		// TWI Slave Mode Disabled, TWI Master Mode Disabled
-		WIRE_INTERFACE->TWI_CR = TWI_CR_SVDIS | TWI_CR_MSDIS;
-		
-		// Disable interrupts
-		NVIC_DisableIRQ(TWI1_IRQn);
-		NVIC_ClearPendingIRQ(TWI1_IRQn);
-		
-		BusReset();
-		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
-	}
-	
-	void BusReset()
-	{
-		// Sent 9 pulses over CLK pin, should free-up any slave SDA hangs
-		// I2C 100K Hz is 10us per clock cycle. The delay value gives ~84us/8 clk cycle
-		pinMode(21, OUTPUT);
-		for (int i = 0; i < 9; i++) {
-			
-			digitalWrite(21, HIGH);
-			delayMicroseconds(3);	
-			digitalWrite(21, LOW);
-			delayMicroseconds(3);
-		}
-		pinMode(21, INPUT);
-	}
-	
 private:
 	bool _rx_stop_set;
 	volatile PdcTwoWireStatus _comm_st;  ///TODO: static is dirty 
@@ -369,6 +351,24 @@ private:
 	{
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
+	}
+	
+	/***************************************************************
+	  manual reset by BusReset() to clear slave pull down issue.
+	****************************************************************/
+	void BusReset()
+	{
+		// Sent 9 pulses over CLK pin, should free-up any slave SDA hangs
+		// I2C 100K Hz is 10us per clock cycle. The delay value gives ~84us/8 clk cycle
+		pinMode(21, OUTPUT);
+		for (int i = 0; i < 9; i++) {
+			
+			digitalWrite(21, HIGH);
+			delayMicroseconds(3);	
+			digitalWrite(21, LOW);
+			delayMicroseconds(3);
+		}
+		pinMode(21, INPUT);
 	}
 	
 };	//class PdcTwi
