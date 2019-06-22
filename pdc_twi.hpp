@@ -22,8 +22,7 @@ class PdcTwi {
 public:
 	enum PdcTwoWireStatus {
 		PDC_UNINIT,
-		PDC_OFF,
-		PDC_RUNNING,
+		PDC_STDBY,
 		PDC_SINGLE_TX,
 		PDC_SINGLE_RX,
 		PDC_MULTI_TX,
@@ -63,13 +62,14 @@ public:
 		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;	// Disable PDC channel
 		TWI_ConfigureMaster(WIRE_INTERFACE, TWI_CLOCK, VARIANT_MCK);	// set to master mode
 		
-		_comm_st = PdcTwoWireStatus::PDC_OFF;
+		_comm_st = PdcTwoWireStatus::PDC_STDBY;
 		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 	}
 	
+	//This function will blocked for ~15ms
 	void Reset()
 	{
-		End();		//Disable TWI functions
+		End();		//Disable TWI functions, blocked for 12ms
 		
 		BusReset();
 		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
@@ -151,6 +151,28 @@ public:
 	{
 		if( _comm_st == PdcTwoWireStatus::PDC_RX_SUCCESS ) return true;
 		else return false;
+	}
+	bool ResetStatus()
+	{
+		switch(_comm_st) {
+			case(PdcTwoWireStatus::PDC_UNINIT):
+			case(PdcTwoWireStatus::PDC_SINGLE_TX):
+			case(PdcTwoWireStatus::PDC_SINGLE_RX):
+			case(PdcTwoWireStatus::PDC_MULTI_TX):
+			case(PdcTwoWireStatus::PDC_MULTI_RX):
+				return false;
+				break;
+			case(PdcTwoWireStatus::PDC_STDBY):
+			case(PdcTwoWireStatus::PDC_TX_SUCCESS):
+			case(PdcTwoWireStatus::PDC_RX_SUCCESS):
+			case(PdcTwoWireStatus::PDC_TX_FAILED):
+			case(PdcTwoWireStatus::PDC_RX_FAILED):
+			case(PdcTwoWireStatus::PDC_UNKOWN_FAILED):
+				_comm_st = PdcTwoWireStatus::PDC_STDBY;
+				return true;
+				break;
+		}
+		return false; // uncatched case
 	}
 	
 
