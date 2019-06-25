@@ -90,6 +90,20 @@ public:
 		return false;
 	}
 	
+	int SetRegTillEnd(uint8_t dev_id, const uint8_t reg, const uint8_t data, unsigned long t_out)
+	{
+		unsigned long t_start = millis();
+		unsigned long now;
+		int ret = WriteTo(dev_id, reg, &_ask_dummy_bfr, 1);
+		if( ret )  return ret; 		// something went wrong
+		do {
+			ret = SetRegIsFinished();
+			now = millis()
+		}while( (!ret) && (now-t_start < t_out) )
+		if(now-t_start >t_out) return -2;		// timeout
+		return ret;
+	}
+	
 	/*int LineUpWriteTo(uint8_t dev_id, const uint8_t reg, const uint8_t *data, unsigned int len)
 	{
 		if((_tx_queue_len + len) >= I2C_BFR_SIZE) {
@@ -138,7 +152,7 @@ public:
 		if(_bus_st == I2cBusStatus::BUS_ASK_WRITING) {
 			if( !i2c.TxComplete() )
 			{
-				return 1;		// tx not ready
+				return 1;		// tx ungoing
 			}else 
 			{
 				_bus_st = I2cBusStatus::BUS_ASK_READING
@@ -151,7 +165,7 @@ public:
 		if(_bus_st == I2cBusStatus::BUS_ASK_READING) {
 			if( !i2c.RxComplete() )
 			{
-				return 3;		// rx not ready
+				return 3;		// rx ungoing
 			}else
 			{
 				_bus_st == I2cBusStatus::BUS_ASK_FINISH;
