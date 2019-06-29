@@ -160,6 +160,7 @@ public:
 	}
 	int UpdateGetReg()
 	{
+		int rtn = 0;
 		if( (_bus_st != I2cBusStatus::BUS_ASK_WRITING) &&
 		    (_bus_st != I2cBusStatus::BUS_ASK_READING)         )
 		{
@@ -176,7 +177,7 @@ public:
 				i2c.ReadFrom( _dev_addr[_curr_dev_id], 
 							  _rx_bfr_p[_curr_dev_id], 
 							  _rx_bfr_len[_curr_dev_id]      );
-				return 2;		// start reading
+				rtn = 2;		// start reading
 			}
 		}
 		if(_bus_st == I2cBusStatus::BUS_ASK_READING) {
@@ -186,9 +187,10 @@ public:
 			}else
 			{
 				_bus_st = I2cBusStatus::BUS_ASK_FINISH;
-				return 4;		// finished
+				rtn = 4;		// finished
 			}
 		}
+		return rtn;
 	}
 	int FetchRegData(uint8_t* bfr, unsigned int len)
 	{
