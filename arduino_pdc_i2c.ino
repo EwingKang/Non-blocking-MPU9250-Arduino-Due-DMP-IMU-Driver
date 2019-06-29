@@ -18,9 +18,9 @@
 #define MPU6050_WHO_AM_I_BIT    6
 #define MPU6050_WHO_AM_I_LENGTH 6
 
-#define ADXL234         0x53		//ADXL345
+#define ADXL345         0x53		//ADXL345
 #define HMC5883 		0x1E         //gyro
-// ADXL234 register map
+// ADXL345 register map
 #define ADXL345_WHO_AM_I    	 0x00
 #define ADXL345_FIFO_STATUS     0x39
 #define ADXL345_PWR_CTL_RA		0x2D
@@ -40,7 +40,7 @@ void setup() {
 	
 	//============ test1: single write read ================
 	Serial.println("Test1 Start");
-	accelerometer = i2c_bus.Add_Device(ADXL234);
+	accelerometer = i2c_bus.Add_Device(ADXL345);
 	delay(200); 							// for serial to write
 	
 	uint8_t rtn = 3;
@@ -64,17 +64,17 @@ void setup() {
 	
 	//============ test2: multi write ================
 	Serial.println("Test2 Start");
-	Serial.println("Enable ADXL234 measurement (multi-write)");
+	Serial.println("Set ADXL345 to measure +- 4G: Blocking SetReg");
 	delay(200); // for serial to write
-	
 	
 	//Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
 	i2c_bus.SetRegBlocked(accelerometer, 0x31, 0x01, 2);	// 2ms block
 
+	Serial.println("Enable ADXL345 measurement: non-blocking SetReg");
 	static uint8_t rtn1[10];	
 	i2c_bus.SetReg(accelerometer, ADXL345_PWR_CTL_RA, 0x08); // register address , EN_MEAS
 	while( !i2c_bus.SetRegIsFinished() );		// block when transmitting
-	Serial.println("ADXL234 Started");
+	Serial.println("ADXL345 set!");
 	Serial.println("---------------------");
 	delay(2000); // for ADXL345 to start (enable measurement)
 	
