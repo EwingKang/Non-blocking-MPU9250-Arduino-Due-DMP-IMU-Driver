@@ -1,4 +1,4 @@
-# pdc_lib_v01
+# arduino_pdc_i2c
 This intent to ba a library for non-blocking I2C communication on Arduino Due (ATSAM3X).  
 The function uses Peripheral DMA Controller, or PDC on the Two Wire Interface (TWI, can be seen as a alias for I2C). Basically, you only have to assign the data and volume to the PDC, and the hardware controller will transfer (transmit or receive) the data in the background. 
 
@@ -7,10 +7,16 @@ Not in particular order
 - [x] Remove static variable in class
 - [x] 400Kbps support
 - [ ] Remove all Serial.print within lib
-- [ ] Access guards for half-duplex dependent on status
+- [x] Access guards for half-duplex dependent on status
 - [ ] Comm queue? buffers? (use DMA copy?)
 
 ## Changelog
+##### v0.4
+  - Add I2C bus/deivce library
+  - New testing .ino source
+  - Tested SetGeg and GetGeg functions
+  - Blocking version of the function call
+  - Move old test file into sub directory
 ##### v0.3
   - Cleanup comm status handling
   - Fix single bye RX to copy to pointers
