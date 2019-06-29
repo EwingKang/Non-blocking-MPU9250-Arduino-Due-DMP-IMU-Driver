@@ -36,8 +36,7 @@ void setup() {
 	Serial.println("=========Start Dma test==========");
 	i2c.Init();
 	delay(2000);
-	
-	
+		
 	
 	//============ test1: single write read ================
 	Serial.print("Test1 Start");

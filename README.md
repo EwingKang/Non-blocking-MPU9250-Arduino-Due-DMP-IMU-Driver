@@ -7,10 +7,16 @@ Not in particular order
 - [x] Remove static variable in class
 - [x] 400Kbps support
 - [ ] Remove all Serial.print within lib
-- [ ] Access guards for half-duplex dependent on status
+- [x] Access guards for half-duplex dependent on status
 - [ ] Comm queue? buffers? (use DMA copy?)
 
 ## Changelog
+##### v0.4
+  - Add I2C bus/deivce library
+  - New testing .ino source
+  - Tested SetGeg and GetGeg functions
+  - Blocking version of the function call
+  - Move old test file into sub directory
 ##### v0.3
   - Cleanup comm status handling
   - Fix single bye RX to copy to pointers
