@@ -2,6 +2,17 @@
 This intent to ba a library for non-blocking I2C communication on Arduino Due (ATSAM3X).  
 The function uses Peripheral DMA Controller, or PDC on the Two Wire Interface (TWI, can be seen as a alias for I2C). Basically, you only have to assign the data and volume to the PDC, and the hardware controller will transfer (transmit or receive) the data in the background. 
 
+## Installation
+1. Arduino IDE: [Linux](https://www.arduino.cc/en/guide/linux), [Windows]()
+2. In IDE Tools->Board->Board manager, search "due" and install the Arduino SAM Boards (32-bit Cortex M3)
+3. Change board to Arduinoi Due (programming port)
+4. Clone this project 
+    ```
+    cd ~/Arduino/
+    git clone https://github.com/EwingKang/arduino_pdc_i2c.git
+    ```
+5. Build the project with IDE
+
 ## Dev plan
 Not in particular order
 - [x] Remove static variable in class
