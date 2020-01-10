@@ -40,8 +40,8 @@ Supported Platforms:
 
 // Include the Invensense MPU9250 driver and DMP keys:
 extern "C" {
-#include "util/inv_mpu.h"
-#include "util/inv_mpu_dmp_motion_driver.h"
+#include "utils/inv_mpu.h"
+#include "utils/inv_mpu_dmp_motion_driver.h"
 }
 
 typedef int inv_error_t;
@@ -89,6 +89,8 @@ public:
 	unsigned long time;
 	float pitch, roll, yaw;
 	float heading;
+	
+	I2cBus i2c_bus;
 	
 	MPU9250_DMP();
 	

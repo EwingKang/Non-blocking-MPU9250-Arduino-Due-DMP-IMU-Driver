@@ -550,6 +550,9 @@ static struct gyro_state_s st = {
 };
 #endif
 
+
+i2c_bus.Add_Device(st.hw->addr);
+
 #define MAX_PACKET_LENGTH (12)
 #ifdef MPU6500
 #define HWST_MAX_PACKET_LENGTH (512)

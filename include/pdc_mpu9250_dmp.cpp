@@ -52,12 +52,14 @@ inv_error_t MPU9250_DMP::begin(void)
 	inv_error_t result;
     struct int_param_s int_param;
 	
-	Wire.begin(); //EWING TODO
+	//Wire.begin(); //EWING TODO
+	i2c_bus.Begin();
 	
 	result = mpu_init(&int_param);
 	
 	if (result)
 		return result;
+	accelerometer = i2c_bus.Add_Device(ADXL345);
 	
 	mpu_set_bypass(1); // Place all slaves (including compass) on primary bus
 	
