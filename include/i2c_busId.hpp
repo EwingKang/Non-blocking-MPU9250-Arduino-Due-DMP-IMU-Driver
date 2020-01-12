@@ -144,7 +144,7 @@ public:
 			( _bus_st != I2cBusStatus::BUS_STDBY)       &&
 		    ( _bus_st != I2cBusStatus::BUS_ASK_FINISH)	     ) 
 		{
-			Serial.print("GetReg buzy: ");
+			Serial.print("GetReg busy: ");
 			Serial.println(_bus_st);
 			return -2; 		// bus busy!
 		}

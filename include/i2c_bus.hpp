@@ -2,11 +2,11 @@
 #define I2C_DEVICES_H_
 
 #include "pdc_twi.hpp"
-#include <vector>
+//#include <vector>
 
 #define I2C_BFR_SIZE 128
-//uint8_t tx_bfr[I2C_BFR_SIZE];
-//uint8_t rx_bfr[I2C_BFR_SIZE];
+uint8_t tx_bfr[I2C_BFR_SIZE];
+uint8_t rx_bfr[I2C_BFR_SIZE];
 
 //Future plan:
 //	1. Add different TWI interface handling in the future 
@@ -35,29 +35,21 @@ public:
 	}
 	
 	// return  the id for the device
-	int Add_Device(const uint8_t dev_addr)
-	{	
-		_dev_addr.push_back(dev_addr);
-		_tx_bfr_p.push_back(new uint8_t[I2C_BFR_SIZE]);
-		_tx_bfr_len.push_back(0);
-		
-		_rx_bfr_p.push_back(new uint8_t[I2C_BFR_SIZE]);
-		_rx_bfr_len.push_back(0);
-		return ( _dev_addr.size()-1 );	// the id for the device
-	}
 	
 	
 	/****************************************************************
 						Set data in slave register
 	*****************************************************************/
-	int SetReg(uint8_t dev_id, const uint8_t reg, const uint8_t *data, unsigned int len)
+	int WriteReg( const uint8_t dev_addr, const uint8_t reg, 
+				const uint8_t *data, unsigned int len      )
 	{
-		if( dev_id >= _dev_addr.size() ) 
-		{
-			return -1;		// no such device!
+
+		if( len > tx_bfr-1) {
+			return -4;			// Data larger then buffer size
 		}
+			
 		if( _bus_st == I2cBusStatus::BUS_WRITING) {
-			if( !SetRegIsFinished() ) return -3;
+			if( !WriteRegIsFinished() ) return -3;
 		}
 		if( ( _bus_st != I2cBusStatus::BUS_LAST_FAILED) &&
 			( _bus_st != I2cBusStatus::BUS_STDBY )      &&
@@ -65,25 +57,26 @@ public:
 		{
 			return -2; 		// bus busy!
 		}
-		_curr_dev_id = dev_id;
 		
-		_tx_bfr_p[dev_id][0] = reg;						// slave register
-		memcpy( (_tx_bfr_p[dev_id])+1 , data, len);		// data
-		_tx_bfr_len[dev_id] = len + 1;
+		tx_bfr[0] = reg;						// slave register
+		memcpy( (tx_bfr)+1 , data, len);		// data
+		
 		// DEBUG
-		//String str = "set reg:" + String( _dev_addr[dev_id], HEX) + ",";
-		//str += String( *_tx_bfr_p[dev_id], HEX) + ",";
-		//str += String( _tx_bfr_len[dev_id]) + ";";
+		//String str = "set reg:" + String(dev_addr, HEX) + ",";
+		//str += String(*tx_bfr, HEX) + ",";
+		//str += String(len) + ";";
 		//Serial.println(str.c_str());
-		i2c.WriteTo(_dev_addr[dev_id], _tx_bfr_p[dev_id], _tx_bfr_len[dev_id]);
+		i2c.WriteTo(dev_addr, tx_bfr, len+1);
 		_bus_st = I2cBusStatus::BUS_WRITING;
 		return 0;
 	}
-	int SetReg(uint8_t dev_id, const uint8_t reg, const uint8_t data)
+	int WriteReg(const uint8_t dev_addr, const uint8_t reg, const uint8_t data)
 	{
-		return SetReg(dev_id, reg, &data, 1);	// 1-byte data write
+		return WriteReg(dev_addr, reg, &data, 1);	// 1-byte data write
 	}
-	bool SetRegIsFinished() {
+	
+	bool WriteRegIsFinished() 
+	{
 		if(_bus_st == I2cBusStatus::BUS_WRITING)
 		{
 			if( !i2c.TxComplete() )
@@ -98,73 +91,75 @@ public:
 		return false;
 	}
 	
-	int SetRegBlocked( uint8_t dev_id, const uint8_t reg, 
-	                   const uint8_t* data, const unsigned int len, 
-					   unsigned long t_out                            )
+	int WriteRegBlocked( uint8_t dev_addr, const uint8_t reg, 
+						 const uint8_t* data, const unsigned int len, 
+						 unsigned long t_out_ms                            )
 	{
 		unsigned long t_start = millis();
 		unsigned long now;
-		int ret = SetReg(dev_id, reg, data, len);
+		int ret = WriteReg(dev_addr, reg, data, len);
 		if( ret )  return ret; 		// something went wrong
 		do {
-			ret = SetRegIsFinished();
+			ret = WriteRegIsFinished();
 			now = millis();
-		}while( (!ret) && (now-t_start < t_out) );
-		if(now-t_start >t_out) return -10;		// timeout
+		}while( (!ret) && (now-t_start < t_out_ms) );
+		if(now-t_start >t_out_ms) return -10;		// timeout
 		return ret;
 	}
-	int SetRegBlocked(uint8_t dev_id, const uint8_t reg, const uint8_t data, unsigned long t_out)
+	int WriteRegBlocked(uint8_t dev_addr, const uint8_t reg, const uint8_t data, unsigned long t_out_ms)
 	{
-		return SetRegBlocked(dev_id, reg, &data, 1, t_out);
+		return WriteRegBlocked(dev_addr, reg, &data, 1, t_out_ms);
 	}
 
 	
 	/****************************************************************
 						Read data from slave register
-		Currently, after GetReg() call, you have to poll 
-		UpdateGetReg() by yourself. The alternative is to make
+		Currently, after ReadReg() call, you have to poll 
+		UpdateReadReg() by yourself. The alternative is to make
 		hardware interface library to trigger next stage in 
 		comunication within the interrupt. However, this will mean 
 		the manipulation of various interrupt and hardware register 
 		within the ISR handler, which is untested and will dramatically
 		increase the complexity of the library.
 	*****************************************************************/
-	int GetReg(uint8_t dev_id, const uint8_t reg, unsigned int len)
+	int ReadReg(uint8_t dev_addr, const uint8_t reg, unsigned int len)
 	{
-		if( dev_id >= _dev_addr.size() ) 
+		if( len > I2C_BFR_SIZE-1 )
 		{
-			Serial.print("dev_id out of range: ");
-			Serial.println(dev_id);
-			return -1;		// no such device!
+			Serial.print("Not enough Rx buffer:");
+			Serial.println(len);
+			return -1;
 		}
 		if( _bus_st == I2cBusStatus::BUS_WRITING) {
-			if( !SetRegIsFinished() ) return -3;
+			if( !WriteRegIsFinished() ) return -3;
 		}
 		if( ( _bus_st != I2cBusStatus::BUS_LAST_FAILED) &&
 			( _bus_st != I2cBusStatus::BUS_STDBY)       &&
 		    ( _bus_st != I2cBusStatus::BUS_ASK_FINISH)	     ) 
 		{
-			Serial.print("GetReg busy: ");
+			Serial.print("ReadReg busy: ");
 			Serial.println(_bus_st);
 			return -2; 		// bus busy!
 		}
-		_curr_dev_id = dev_id;
-		_rx_bfr_len[dev_id] = len;
-		if( SetReg(dev_id, reg, _tx_bfr_p[dev_id], 0) == 0)
+		
+		//Write the address into slave device
+		if( WriteReg(dev_addr, reg, 0, 0) == 0)
 		{
 			_bus_st = I2cBusStatus::BUS_ASK_WRITING;
 			return 0;
 		}else{
 			return -3;		// write failed
 		}
+		_curr_read_dev_addr = dev_addr;
+		_curr_read_len = len;
 	}
-	int UpdateGetReg()
+	int UpdateReadReg()
 	{
 		int rtn = 0;
 		if( (_bus_st != I2cBusStatus::BUS_ASK_WRITING) &&
 		    (_bus_st != I2cBusStatus::BUS_ASK_READING)         )
 		{
-			return -1;			// not doing GetReg atm
+			return -1;			// not doing ReadReg atm
 		}
 		
 		if(_bus_st == I2cBusStatus::BUS_ASK_WRITING) {
@@ -174,16 +169,14 @@ public:
 			}else 
 			{
 				_bus_st = I2cBusStatus::BUS_ASK_READING;
-				i2c.ReadFrom( _dev_addr[_curr_dev_id], 
-							  _rx_bfr_p[_curr_dev_id], 
-							  _rx_bfr_len[_curr_dev_id]      );
+				i2c.ReadFrom( _curr_dev_addr, rx_bfr, _curr_read_len );
 				rtn = 2;		// start reading
 			}
 		}
 		if(_bus_st == I2cBusStatus::BUS_ASK_READING) {
 			if( !i2c.RxComplete() )
 			{
-				return 3;		// rx ungoing
+				return 3;		// rx ongoing
 			}else
 			{
 				_bus_st = I2cBusStatus::BUS_ASK_FINISH;
@@ -192,7 +185,7 @@ public:
 		}
 		return rtn;
 	}
-	int FetchRegData(uint8_t* bfr, unsigned int len)
+	int FetchRegReadData(uint8_t* bfr, unsigned int len)
 	{
 		if(_bus_st != I2cBusStatus::BUS_ASK_FINISH) 
 		{
@@ -203,22 +196,23 @@ public:
 			return -2;		// copy length not correct
 		}
 		
-		memcpy(bfr, _rx_bfr_p[_curr_dev_id], _rx_bfr_len[_curr_dev_id]);
+		memcpy(bfr, rx_bfr, len);
 		_bus_st == I2cBusStatus::BUS_STDBY;
 		return 0;		// success
 	}
 	
-	int GetRegBlocked(uint8_t dev_id, const uint8_t reg, unsigned int len, uint8_t* bfr, unsigned long t_out)
+	int ReadRegBlocked(uint8_t dev_id, const uint8_t reg, 
+					   unsigned int len, uint8_t* bfr, unsigned long t_out_ms)
 	{
 		unsigned long t_start = millis();
 		unsigned long now;
-		int ret = GetReg(dev_id, reg, len);
+		int ret = ReadReg(dev_id, reg, len);
 		if( ret )  return ret; 		// something went wrong
 		do {
-			ret = UpdateGetReg();
+			ret = UpdateReadReg();
 			now = millis();
-		}while( (ret>0) && (ret<4) && (now-t_start < t_out) );
-		if(now-t_start >t_out) return -10;		// timeout
+		}while( (ret>0) && (ret<4) && (now-t_start < t_out_ms) );
+		if(now-t_start >t_out_ms) return -10;		// timeout
 		if(ret != 4) return ret;				// error code
 		
 		return FetchRegData(bfr, len);		
@@ -232,14 +226,8 @@ public:
 private:
 	PdcTwi i2c;
 	
-	uint8_t _curr_dev_id;
-	std::vector<uint8_t> _dev_addr;
-	std::vector<uint8_t *> _tx_bfr_p;	// pointer to buffer for each device
-	std::vector<uint8_t> _tx_bfr_len;		// remaining data within dev buffer
-	
-	std::vector<uint8_t *> _rx_bfr_p;	// pointer to rx buffer for each device
-	std::vector<uint8_t> _rx_bfr_len;	// asking reading length
-	
+	uint8_t _curr_read_dev_addr;
+	unsigned int _curr_read_len;
 	
 	//std::queue<unsigned int> _tx_size_q;
 	//unsigned int _tx_queue_len;
