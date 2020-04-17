@@ -19,14 +19,14 @@ IMU 9250 x.x.x
 Supported Platforms:
 - xxxxx (Arduino Due, ???? IMU)
 ******************************************************************************/
-#include "arduino_due_pdc_i2c.h"
-#include "include/i2c_bus.hpp"
+#include "../include/arduino_due_pdc_i2c.h"
+#include "../include/i2c_bus.hpp"
 //#include <Arduino.h>
 //#include <Wire.h>
 //I2cBus i2c_bus;  EWING do this?
 //int accelerometer, gyro_id;
 
-int arduino_i2c_blocked_write(unsigned char slave_addr, unsigned char reg_addr,
+int arduino_pdci2c_blocked_write(unsigned char slave_addr, unsigned char reg_addr,
                        unsigned char length, unsigned char * data)
 {
 	/*
@@ -42,7 +42,7 @@ int arduino_i2c_blocked_write(unsigned char slave_addr, unsigned char reg_addr,
 	return 0;
 }
 
-int arduino_i2c_blocked_read(unsigned char slave_addr, unsigned char reg_addr,
+int arduino_pdci2c_blocked_read(unsigned char slave_addr, unsigned char reg_addr,
                        unsigned char length, unsigned char * data)
 {
 	Wire.beginTransmission(slave_addr);

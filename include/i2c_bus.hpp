@@ -44,7 +44,7 @@ public:
 				const uint8_t *data, unsigned int len      )
 	{
 
-		if( len > tx_bfr-1) {
+		if( len > I2C_BFR_SIZE-1) {
 			return -4;			// Data larger then buffer size
 		}
 			
@@ -153,6 +153,7 @@ public:
 		_curr_read_dev_addr = dev_addr;
 		_curr_read_len = len;
 	}
+	
 	int UpdateReadReg()
 	{
 		int rtn = 0;
@@ -169,7 +170,7 @@ public:
 			}else 
 			{
 				_bus_st = I2cBusStatus::BUS_ASK_READING;
-				i2c.ReadFrom( _curr_dev_addr, rx_bfr, _curr_read_len );
+				i2c.ReadFrom( _curr_read_dev_addr, rx_bfr, _curr_read_len );
 				rtn = 2;		// start reading
 			}
 		}
@@ -185,13 +186,14 @@ public:
 		}
 		return rtn;
 	}
+	
 	int FetchRegReadData(uint8_t* bfr, unsigned int len)
 	{
 		if(_bus_st != I2cBusStatus::BUS_ASK_FINISH) 
 		{
 			return -1;		// haven't received anything
 		}		
-		if(len != _rx_bfr_len[_curr_dev_id])
+		if(len != _curr_read_len)
 		{
 			return -2;		// copy length not correct
 		}
@@ -215,7 +217,7 @@ public:
 		if(now-t_start >t_out_ms) return -10;		// timeout
 		if(ret != 4) return ret;				// error code
 		
-		return FetchRegData(bfr, len);		
+		return FetchRegReadData(bfr, len);		
 	}
 	
 	inline void IsrHandler() 

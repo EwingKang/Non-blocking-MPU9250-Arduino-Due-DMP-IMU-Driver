@@ -78,6 +78,7 @@ const signed char defaultOrientation[9] = {
 #define ORIENT_REVERSE_PORTRAIT  2
 #define ORIENT_REVERSE_LANDSCAPE 3
 
+	
 class MPU9250_DMP 
 {
 public:
@@ -89,8 +90,7 @@ public:
 	unsigned long time;
 	float pitch, roll, yaw;
 	float heading;
-	
-	I2cBus i2c_bus;
+
 	
 	MPU9250_DMP();
 	
@@ -500,5 +500,6 @@ private:
 	float qToFloat(long number, unsigned char q);
 	unsigned short orientation_row_2_scale(const signed char *row);
 };
+
 
 #endif // _SPARKFUN_MPU9250_DMP_H_
