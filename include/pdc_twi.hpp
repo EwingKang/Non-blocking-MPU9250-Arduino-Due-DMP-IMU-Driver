@@ -100,12 +100,14 @@ public:
 	{
 		if(len == 0) return;
 		if( len == 1) {
-			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;			
+			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;	
+			Serial.println("singleTx");
 			// P.713 IADR is for extended addressing for non-7 bit address
 			WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 			WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
-			WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// set stop for one byte
+			//WIRE_INTERFACE->TWI_CR |= TWI_CR_START | TWI_CR_STOP;		// set stop for one byte
 			WIRE_INTERFACE->TWI_THR = (*data_ptr);		// start the transmission
+			WIRE_INTERFACE->TWI_CR |= TWI_CR_START | TWI_CR_STOP;
 			
 			// interrupt enable register, this *needs* to be set AFTER THR
 			WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP | TWI_IER_NACK;	
@@ -144,13 +146,11 @@ public:
 	
 	bool TxComplete() 
 	{
-		if( _comm_st == PdcTwoWireStatus::PDC_TX_SUCCESS ) return true;
-		else return false;
+		return _comm_st == PdcTwoWireStatus::PDC_TX_SUCCESS;
 	}
 	bool RxComplete() 
 	{
-		if( _comm_st == PdcTwoWireStatus::PDC_RX_SUCCESS ) return true;
-		else return false;
+		return _comm_st == PdcTwoWireStatus::PDC_RX_SUCCESS;
 	}
 	bool ResetStatus()
 	{
@@ -203,13 +203,13 @@ public:
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;		// disable all interrupts
-				//Serial.println("txSglComp");
+				Serial.println("txSglComp");
 				return;
 			} else 
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_FAILED;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				//Serial.println("txSglUNKwn");
+				Serial.println("txSglUNKwn");
 				return;
 			}
 		  break;
@@ -228,7 +228,7 @@ public:
 				_comm_st = PdcTwoWireStatus::PDC_RX_SUCCESS;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				(*_rx_ptr) = WIRE_INTERFACE->TWI_RHR;
-				//Serial.println("rxSglComp");
+				Serial.println("rxSglComp");
 				return;
 			} else 
 			{
@@ -254,7 +254,7 @@ public:
 				_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
-				//Serial.println("txComp");
+				Serial.println("txComp");
 				return;
 			}
 			if( sr & TWI_SR_ENDTX ) 
@@ -266,7 +266,7 @@ public:
 				WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// This is necessary or SCL will hang low
 				WIRE_INTERFACE->TWI_IDR = TWI_SR_ENDTX;		// Disable PDC end isr
 				WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP;	// so it'll trigger comp next time for multi-byte write
-				//Serial.println("txLast");
+				Serial.println("txLast");
 				return;	
 			}
 		  break;
@@ -289,7 +289,7 @@ public:
 				if( !_rx_stop_set)	WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// Stop case missed
 				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
-				//Serial.println("rxEnd");
+				Serial.println("rxEnd");
 				return;
 			} else 
 			{
@@ -302,7 +302,7 @@ public:
 				{
 					WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
 					_rx_stop_set = true;
-					//Serial.println("rxLastOne");
+					Serial.println("rxLastOne");
 				}
 				return;
 			}
@@ -391,6 +391,7 @@ private:
 			delayMicroseconds(3);
 		}
 		pinMode(21, INPUT);
+		pinMode(21, INPUT_PULLUP);
 	}
 	
 };	//class PdcTwi

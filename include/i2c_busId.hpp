@@ -8,7 +8,7 @@
 //uint8_t tx_bfr[I2C_BFR_SIZE];
 //uint8_t rx_bfr[I2C_BFR_SIZE];
 
-//Future plan:
+//Future plan TODO:
 //	1. Add different TWI interface handling in the future 
 class I2cBus {
 public:

@@ -28,9 +28,10 @@ Supported Platforms:
 ******************************************************************************/
 #include "../include/pdc_mpu9250_dmp.h"
 #include "../include/MPU9250_RegisterMap.h"
+#include "../include/i2c_bus.hpp"
 
 extern "C" {
-#include "../include/utils/inv_mpu.h"
+#include "utils/inv_mpu.h"
 }
 
 static unsigned char mpu9250_orientation;
@@ -39,6 +40,8 @@ static unsigned char tap_direction;
 static bool _tap_available;
 static void orient_cb(unsigned char orient);
 static void tap_cb(unsigned char direction, unsigned char count);
+
+I2cBus i2c_bus;
 
 MPU9250_DMP::MPU9250_DMP()
 {
@@ -55,14 +58,16 @@ inv_error_t MPU9250_DMP::begin(void)
 	//Wire.begin(); //EWING TODO
 	i2c_bus.Begin();
 	
+	Serial.println("MPU init");
 	result = mpu_init(&int_param);
 	
 	if (result)
 		return result;
-	accelerometer = i2c_bus.Add_Device(ADXL345);
-	
+	//accelerometer = i2c_bus.Add_Device(ADXL345);
+	Serial.println("Set bypass");
 	mpu_set_bypass(1); // Place all slaves (including compass) on primary bus
 	
+	Serial.println("Set sensors");
 	setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
 	
 	_gSense = getGyroSens();
@@ -714,3 +719,7 @@ static void orient_cb(unsigned char orient)
 {
 	mpu9250_orientation = orient;
 }
+
+void TWI1_Handler() {
+	i2c_bus.IsrHandler();
+};

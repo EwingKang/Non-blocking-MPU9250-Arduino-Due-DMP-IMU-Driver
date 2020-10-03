@@ -19,6 +19,8 @@ void setup() {
 	Serial.println("=========Start 9250DMP with Ardu Due DMA test==========");
 	delay(2000);
 	
+	pinMode(22,INPUT);
+	
 	if (imu.begin() != INV_SUCCESS)
 	{
 		while (1)
@@ -30,6 +32,7 @@ void setup() {
 		}
 	}
 
+	Serial.println("Set sensor");
 	imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
 
 	// Use setGyroFSR() and setAccelFSR() to configure the
@@ -57,11 +60,15 @@ void setup() {
 	imu.setCompassSampleRate(10); // Set mag rate to 10Hz
 }
 
+int i=0;
 void loop() {
 	// dataReady() checks to see if new accel/gyro data
 	// is available. It will return a boolean true or false
 	// (New magnetometer data cannot be checked, as the library
 	//  runs that sensor in single-conversion mode.)
+	Serial.print("Loop: ");
+	Serial.println(i);
+	i++;
 	if ( imu.dataReady() )
 	{
 		// Call update() to update the imu objects sensor data.
@@ -73,6 +80,7 @@ void loop() {
 		imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
 		printIMUData();
 	}
+	delay(2000);
 }
 void printIMUData(void)
 {  

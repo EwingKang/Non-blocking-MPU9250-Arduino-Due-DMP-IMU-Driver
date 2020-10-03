@@ -6,7 +6,7 @@ PDC I2C communication
 Ewing Kang
 2020.1.5
 
-Originaed:
+Original source:
 https://github.com/sparkfun/SparkFun_MPU9250_DMP_Arduino_Library
 This library implements motion processing functions of Invensense's MPU-9250.
 It is based on their Emedded MotionDriver 6.12 library.
@@ -22,8 +22,6 @@ Supported Platforms:
 #ifndef _ARDUINO_MPU9250_I2C_H_
 #define _ARDUINO_MPU9250_I2C_H_
 
-I2cBus i2c_bus;
-
 #if defined(__cplusplus) 
 extern "C" {
 #endif
@@ -37,9 +35,5 @@ int arduino_pdci2c_blocked_read(unsigned char slave_addr, unsigned char reg_addr
 }
 #endif
 
-
-void TWI1_Handler() {
-	i2c_bus.IsrHandler();
-}
 
 #endif // _ARDUINO_MPU9250_I2C_H_

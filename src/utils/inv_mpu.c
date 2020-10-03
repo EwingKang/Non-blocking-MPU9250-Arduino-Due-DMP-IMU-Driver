@@ -24,6 +24,7 @@
 #include <math.h>
 #include "inv_mpu.h"
 
+
 /* The following functions must be defined for this platform:
  * i2c_write(unsigned char slave_addr, unsigned char reg_addr,
  *      unsigned char length, unsigned char const *data)
@@ -39,7 +40,7 @@
 #include <Arduino.h>
 #define MPU9250
 //#include "arduino_mpu9250_i2c.h"
-#include "arduino_due_pdc_i2c.h"
+#include "../../include/arduino_due_pdc_i2c.h"
 #include "arduino_mpu9250_clk.h"
 #define i2c_write(a, b, c, d) arduino_pdci2c_blocked_write(a, b, c, d)
 #define i2c_read(a, b, c, d)  arduino_pdci2c_blocked_read(a, b, c, d)
@@ -552,8 +553,6 @@ static struct gyro_state_s st = {
 #endif
 
 
-i2c_bus.Add_Device(st.hw->addr);
-
 #define MAX_PACKET_LENGTH (12)
 #ifdef MPU6500
 #define HWST_MAX_PACKET_LENGTH (512)
@@ -721,7 +720,6 @@ int mpu_init(struct int_param_s *int_param)
     if (mpu_set_bypass(0))
         return -1;
 #endif
-
     mpu_set_sensors(0);
     return 0;
 }

@@ -29,7 +29,6 @@ Supported Platforms:
 #ifndef _PDC_MPU9250_DMP_H_
 #define _PDC_MPU9250_DMP_H_
 
-#include "i2c_bus.hpp"
 #include <Arduino.h>
 
 // Optimally, these defines would be passed as compiler options, but Arduino
@@ -40,8 +39,8 @@ Supported Platforms:
 
 // Include the Invensense MPU9250 driver and DMP keys:
 extern "C" {
-#include "utils/inv_mpu.h"
-#include "utils/inv_mpu_dmp_motion_driver.h"
+#include "../src/utils/inv_mpu.h"
+#include "../src/utils/inv_mpu_dmp_motion_driver.h"
 }
 
 typedef int inv_error_t;
@@ -78,7 +77,7 @@ const signed char defaultOrientation[9] = {
 #define ORIENT_REVERSE_PORTRAIT  2
 #define ORIENT_REVERSE_LANDSCAPE 3
 
-	
+
 class MPU9250_DMP 
 {
 public:
@@ -499,7 +498,7 @@ private:
 	// Convert a QN-format number to a float
 	float qToFloat(long number, unsigned char q);
 	unsigned short orientation_row_2_scale(const signed char *row);
-};
+};   //class MPU9250_DMP 
 
 
 #endif // _SPARKFUN_MPU9250_DMP_H_
