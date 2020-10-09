@@ -121,14 +121,13 @@ int I2cBus::ReadReg(uint8_t dev_addr, const uint8_t reg, unsigned int len)
 	//Write the address into slave device
 	if( WriteReg(dev_addr, reg, 0, 0) == 0)
 	{
-		Serial.println("Set target reg");
 		_bus_st = I2cBusStatus::BUS_ASK_WRITING;
+		_curr_read_dev_addr = dev_addr;
+		_curr_read_len = len;
 		return 0;
 	}else{
 		return -3;		// write failed
 	}
-	_curr_read_dev_addr = dev_addr;
-	_curr_read_len = len;
 }
 
 int I2cBus::UpdateReadReg()
@@ -146,7 +145,6 @@ int I2cBus::UpdateReadReg()
 			return 1;		// tx ongoing
 		}else 
 		{
-			Serial.println("Switch to read");
 			_bus_st = I2cBusStatus::BUS_ASK_READING;
 			_i2c.ReadFrom( _curr_read_dev_addr, rx_bfr, _curr_read_len );
 			rtn = 2;		// start reading
@@ -188,11 +186,9 @@ int I2cBus::ReadRegBlocked(uint8_t dev_id, const uint8_t reg,
 	unsigned long now;
 	int ret = ReadReg(dev_id, reg, len);
 	if( ret )  return ret; 		// something went wrong
-	Serial.print(" Readblock loop: ");
 	do {
 		ret = UpdateReadReg();
 		now = millis();
-		Serial.println(ret);
 	}while( (ret>0) && (ret<4) && (now-t_start < t_out_ms) );
 	if(now-t_start >=t_out_ms) return -10;		// timeout
 	if(ret != 4) return ret;				// error code

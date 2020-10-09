@@ -41,7 +41,7 @@ static bool _tap_available;
 static void orient_cb(unsigned char orient);
 static void tap_cb(unsigned char direction, unsigned char count);
 
-I2cBus i2c_bus;
+extern I2cBus i2c_bus;
 
 MPU9250_DMP::MPU9250_DMP()
 {

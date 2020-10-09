@@ -62,6 +62,9 @@ void setup() {
 
 int i=0;
 void loop() {
+	
+	
+	
 	// dataReady() checks to see if new accel/gyro data
 	// is available. It will return a boolean true or false
 	// (New magnetometer data cannot be checked, as the library
@@ -82,6 +85,8 @@ void loop() {
 	}
 	delay(2000);
 }
+
+
 void printIMUData(void)
 {  
   // After calling update() the ax, ay, az, gx, gy, gz, mx,
@@ -110,4 +115,3 @@ void printIMUData(void)
   Serial.println("Time: " + String(imu.time) + " ms");
   Serial.println();
 }
-
