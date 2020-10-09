@@ -35,3 +35,9 @@ Not in particular order
 - Arduino Forum [I2C + DMA](https://forum.arduino.cc/index.php?topic=152643.0)
 - Arduino Forum [Interrupt misconception on Due (ATSAM3X)](https://forum.arduino.cc/index.php?topic=621506.0)
 - Arduino Forum [Hanging I2C on DUE, SDA Low SCL High permanent](https://forum.arduino.cc/index.php?topic=288573.0)
+
+## TODO
+- Use IADAR method for internal address access, its much simpler and requires much less interrupts
+    * https://github.com/arduino/ArduinoCore-sam/blob/9944119937a4a3341d2023f0a46c422c0da46298/libraries/Wire/src/Wire.cpp
+    * https://github.com/arduino/ArduinoCore-sam/blob/9944119937a4a3341d2023f0a46c422c0da46298/libraries/Wire/src/Wire.cpp
+    * https://github.com/brandonbraun653/SAM3X8E-Libraries/search?q=twi_master_read
