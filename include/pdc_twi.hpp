@@ -95,7 +95,7 @@ public:
 		[MMR] Master Mode register (p.719)
 		[IADR] Internal ADdress Register (p.713) (p.716)
 	*****************************************************************/
-	void WriteTo(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) 
+	void SendTo(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len) 
 	{
 		if(len == 0) return;
 		if( len == 1) {
@@ -121,7 +121,7 @@ public:
 		}
 	}
 
-	void ReadFrom(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len)
+	void RecieveFrom(uint8_t dev_addr, uint8_t *data_ptr, uint16_t len)
 	{
 		if(len == 0) return;
 		_rx_stop_set = false;
@@ -138,6 +138,61 @@ public:
 		}else {
 			SetPdcReadAddr(data_ptr, len);
 			SetTwiMasterRead(dev_addr);
+			_comm_st = PdcTwoWireStatus::PDC_MULTI_RX;
+			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTEN;
+			WIRE_INTERFACE->TWI_CR = TWI_CR_START;
+			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
+		}
+	}
+	
+	// I2C write operation with 1-Byte internal address
+	// Future: multibyte, be very notice on byte order
+	// Flow chart: p.720/721
+	void WriteTo(const uint8_t dev_addr, const uint8_t reg_addr, uint8_t *data_ptr, uint16_t len) 
+	{
+		if(len == 0) return;
+		
+		SetTwiMasterWriteTo(dev_addr, reg_addr);
+		if( len == 1) {
+			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;	
+			
+			// load transmit register
+			WIRE_INTERFACE->TWI_THR = (*data_ptr);		
+			
+			WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP| TWI_IER_NACK| TWI_IER_TXRDY;
+			// write stop command
+			WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
+			// procedure: TXRDY -> TXCOMP
+			return;
+		}else {
+			_comm_st = PdcTwoWireStatus::PDC_MULTI_TX;
+			//p.718 start PDC procedure
+			SetPdcWriteAddr(data_ptr, len);
+			// enable TX
+			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTEN;
+			// interrupt enable register			
+			WIRE_INTERFACE->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;
+		}
+	}
+	
+	// I2C read operation with 1-Byte internal address
+	// Flow chart: p.723, figure33-12 @p.717
+	void ReadFrom(uint8_t dev_addr, const uint8_t reg_addr, uint8_t *data_ptr, uint16_t len)
+	{
+		if(len == 0) return;
+		_rx_stop_set = false;
+		
+		SetTwiMasterReadFrom(dev_addr, reg_addr);
+		if( len == 1) {
+			_rx_ptr = data_ptr;
+			rx_ptr_rdy = false;
+			_comm_st = PdcTwoWireStatus::PDC_SINGLE_RX;
+			
+			WIRE_INTERFACE->TWI_CR = TWI_CR_START | TWI_CR_STOP;
+			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_TXCOMP;
+			//Procedure: RXRDY -> TXCOMP
+		}else {
+			SetPdcReadAddr(data_ptr, len);
 			_comm_st = PdcTwoWireStatus::PDC_MULTI_RX;
 			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTEN;
 			WIRE_INTERFACE->TWI_CR = TWI_CR_START;
@@ -378,19 +433,32 @@ private:
 							Set TWI control mode
 		Note:
 			MMR-Master Mode register
-			[P.713] IADR is only for extended addressing, i.e. 
-			non-7 bit I2C device address
 	****************************************************************/
-	static inline int SetTwiMasterWrite(uint8_t dev_addr) 
+	static inline int SetTwiMasterWrite(const uint8_t dev_addr) 
 	{
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 	}
-	static inline int SetTwiMasterRead(uint8_t dev_addr) 
+	static inline int SetTwiMasterRead(const uint8_t dev_addr) 
 	{
 		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
 		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
 	}
+	
+	static inline int SetTwiMasterWriteTo(const uint8_t dev_addr, const uint8_t reg_addr) 
+	{
+		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE;
+		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
+		WIRE_INTERFACE->TWI_IADR = TWI_IADR_IADR(reg_addr);
+		
+	}
+	static inline int SetTwiMasterReadFrom(const uint8_t dev_addr, const uint8_t reg_addr) 
+	{
+		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE | TWI_MMR_MREAD; // master read
+		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
+		WIRE_INTERFACE->TWI_IADR = TWI_IADR_IADR(reg_addr);
+	}
+	
 	
 	/***************************************************************
 	  manual reset by BusReset() to clear slave pull down issue.

@@ -62,9 +62,6 @@ void setup() {
 
 int i=0;
 void loop() {
-	
-	
-	
 	// dataReady() checks to see if new accel/gyro data
 	// is available. It will return a boolean true or false
 	// (New magnetometer data cannot be checked, as the library

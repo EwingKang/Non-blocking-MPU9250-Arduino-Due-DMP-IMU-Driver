@@ -35,14 +35,15 @@ int I2cBus::WriteReg( const uint8_t dev_addr, const uint8_t reg,
 	}
 	
 	tx_bfr[0] = reg;						// slave register
-	memcpy( (tx_bfr)+1 , data, len);		// data
+	memcpy( tx_bfr+1 , data, len);		// data
 	
 	// DEBUG
 	//String str = "set reg:" + String(dev_addr, HEX) + ",";
 	//str += String(*tx_bfr, HEX) + ",";
 	//str += String(len) + ";";
 	//Serial.println(str.c_str());
-	_i2c.WriteTo(dev_addr, tx_bfr, len+1);
+	//_i2c.SendTo(dev_addr, tx_bfr, len+1);
+	_i2c.WriteTo(dev_addr, reg, tx_bfr+1, len);
 	_bus_st = I2cBusStatus::BUS_WRITING;
 	return 0;
 }
@@ -119,6 +120,7 @@ int I2cBus::ReadReg(uint8_t dev_addr, const uint8_t reg, unsigned int len)
 	}
 	
 	//Write the address into slave device
+	/*
 	if( WriteReg(dev_addr, reg, 0, 0) == 0)
 	{
 		_bus_st = I2cBusStatus::BUS_ASK_WRITING;
@@ -127,7 +129,14 @@ int I2cBus::ReadReg(uint8_t dev_addr, const uint8_t reg, unsigned int len)
 		return 0;
 	}else{
 		return -3;		// write failed
-	}
+	}*/
+	
+	_i2c.ReadFrom(dev_addr, reg, rx_bfr, len);
+	_curr_read_dev_addr = dev_addr;
+	_curr_read_len = len;
+	_bus_st = I2cBusStatus::BUS_ASK_READING;
+	return 0;
+	
 }
 
 int I2cBus::UpdateReadReg()
@@ -146,7 +155,7 @@ int I2cBus::UpdateReadReg()
 		}else 
 		{
 			_bus_st = I2cBusStatus::BUS_ASK_READING;
-			_i2c.ReadFrom( _curr_read_dev_addr, rx_bfr, _curr_read_len );
+			_i2c.RecieveFrom( _curr_read_dev_addr, rx_bfr, _curr_read_len );
 			rtn = 2;		// start reading
 		}
 	}
