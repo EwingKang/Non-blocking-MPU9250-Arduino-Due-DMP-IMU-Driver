@@ -46,6 +46,7 @@ extern "C" {
 typedef int inv_error_t;
 #define INV_SUCCESS 0
 #define INV_ERROR 0x20
+#define INV_PENDING 0x30
 
 enum t_axisOrder {
 	X_AXIS, // 0
@@ -90,6 +91,8 @@ public:
 	float pitch, roll, yaw;
 	float heading;
 
+	bool is_reading;
+	unsigned long start_us;
 	
 	MPU9250_DMP();
 	
@@ -238,6 +241,7 @@ public:
 	inv_error_t updateGyro(void);
 	inv_error_t updateCompass(void);
 	inv_error_t updateTemperature(void);
+	inv_error_t updateAll(void);
 	inv_error_t updateAllUnblocked(void);
 	
 	/**************************************************************************

@@ -48,6 +48,7 @@ MPU9250_DMP::MPU9250_DMP()
 	_mSense = 6.665f; // Constant - 4915 / 32760
 	_aSense = 0.0f;   // Updated after accel FSR is set
 	_gSense = 0.0f;   // Updated after gyro FSR is set
+	is_reading = false;
 }
 
 inv_error_t MPU9250_DMP::begin(void)
@@ -327,18 +328,13 @@ inv_error_t MPU9250_DMP::update(unsigned char sensors)
 	return aErr | gErr | mErr | tErr;
 }
 
-inv_error_t MPU9250_DMP::updateAllUnblocked()
+inv_error_t MPU9250_DMP::updateAll()
 {
-	inv_error_t aErr = INV_SUCCESS;
-	inv_error_t gErr = INV_SUCCESS;
-	inv_error_t mErr = INV_SUCCESS;
-	inv_error_t tErr = INV_SUCCESS;
-	
 	short acc[3];
 	short gyro[3];
 	short mag[3];
 	
-	if(mpu_get_all_sensor(acc, gyro, mag, &temperature, &time))
+	if(mpu_get_all_sensors(acc, gyro, mag, &temperature, &time))
 	{
 		return INV_ERROR;
 	}
@@ -357,6 +353,51 @@ inv_error_t MPU9250_DMP::updateAllUnblocked()
 	
 	return INV_SUCCESS;
 }
+
+inv_error_t MPU9250_DMP::updateAllUnblocked()
+{
+	short acc[3];
+	short gyro[3];
+	short mag[3];
+	
+	if(!is_reading) {
+		if(mpu_ask_all_sensors())
+			return INV_ERROR;
+		start_us = micros();
+		is_reading = true;
+		return INV_PENDING;
+	}
+	else {
+		int ret = i2c_bus.UpdateReadReg();
+		if(ret >= 1 && ret < 4 && (micros() - start_us)< 1000)
+			return INV_PENDING;	// still spining
+		
+		else if( ret != 4 )  
+			return INV_ERROR;	// timeout
+		
+		else {
+			// success, Fetch data
+			if( mpu_hear_all_sensors(acc, gyro, mag, &temperature, &time))
+				return INV_ERROR;
+			
+			ax = acc[X_AXIS];
+			ay = acc[Y_AXIS];
+			az = acc[Z_AXIS];
+			
+			gx = gyro[X_AXIS];
+			gy = gyro[Y_AXIS];
+			gz = gyro[Z_AXIS];
+			
+			mx = mag[X_AXIS];
+			my = mag[Y_AXIS];
+			mz = mag[Z_AXIS];
+			
+			is_reading = false;
+			return INV_SUCCESS;
+		}
+	}
+}
+
 
 int MPU9250_DMP::updateAccel(void)
 {

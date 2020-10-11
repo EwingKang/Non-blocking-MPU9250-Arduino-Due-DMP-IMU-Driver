@@ -26,10 +26,21 @@ Supported Platforms:
 extern "C" {
 #endif
 
-int arduino_pdci2c_blocked_write(unsigned char slave_addr, unsigned char reg_addr,
-							  unsigned char length, unsigned char * data);
-int arduino_pdci2c_blocked_read(unsigned char slave_addr, unsigned char reg_addr,
-							 unsigned char length, unsigned char * data);
+int arduino_pdci2c_blocked_write(unsigned char slave_addr, 
+								 unsigned char reg_addr,
+								 unsigned char length, 
+								 unsigned char * data       );
+								 
+int arduino_pdci2c_blocked_read(unsigned char slave_addr, 
+								unsigned char reg_addr,
+								unsigned char length, 
+								unsigned char * data     );
+								
+int arduino_pdci2c_ask(unsigned char slave_addr, 
+					   unsigned char reg_addr,
+					   unsigned char length      );
+					   
+int arduino_pdci2c_hear(unsigned char length, char * data);
 
 #if defined(__cplusplus) 
 }

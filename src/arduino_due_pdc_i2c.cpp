@@ -51,3 +51,39 @@ int arduino_pdci2c_blocked_read(unsigned char slave_addr, unsigned char reg_addr
 		return 0;
 	}
 }
+
+int arduino_pdci2c_ask(unsigned char slave_addr, unsigned char reg_addr,
+								unsigned char length)
+{
+	//Serial.print("Ask: ");
+	//Serial.print(length);
+	int res = i2c_bus.ReadReg(slave_addr, reg_addr, length);
+	if(res != 0)
+	{
+		//Serial.print(" failed: ");
+		//Serial.println(res);
+		return -1;
+	}else
+	{
+		//Serial.println(" Done!");
+		return 0;
+	}
+}
+
+
+int arduino_pdci2c_hear(unsigned char length, char * data)
+{
+	//Serial.print("Hear: ");
+	//Serial.print(length);
+	int res = i2c_bus.FetchRegReadData((unsigned char *)data, length);
+	if(res != 0)
+	{
+		//Serial.print(" failed: ");
+		//Serial.println(res);
+		return -1;
+	}else
+	{
+		//Serial.println(" Done!");
+		return 0;
+	}
+}
