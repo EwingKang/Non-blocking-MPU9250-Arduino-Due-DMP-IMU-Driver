@@ -238,6 +238,7 @@ public:
 	inv_error_t updateGyro(void);
 	inv_error_t updateCompass(void);
 	inv_error_t updateTemperature(void);
+	inv_error_t updateAllUnblocked(void);
 	
 	/**************************************************************************
 	*                  ---------- configureFifo() ----------
@@ -464,6 +465,7 @@ public:
 	float calcGyro(int axis);
 	float calcMag(int axis);
 	float calcQuat(long axis);
+	float calcTemp(void);
 	
 	/**************************************************************************
 	*              ---------- computeEulerAngles() ---------- 

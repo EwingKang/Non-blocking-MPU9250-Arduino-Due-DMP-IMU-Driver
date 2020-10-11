@@ -327,13 +327,44 @@ inv_error_t MPU9250_DMP::update(unsigned char sensors)
 	return aErr | gErr | mErr | tErr;
 }
 
+inv_error_t MPU9250_DMP::updateAllUnblocked()
+{
+	inv_error_t aErr = INV_SUCCESS;
+	inv_error_t gErr = INV_SUCCESS;
+	inv_error_t mErr = INV_SUCCESS;
+	inv_error_t tErr = INV_SUCCESS;
+	
+	short acc[3];
+	short gyro[3];
+	short mag[3];
+	
+	if(mpu_get_all_sensor(acc, gyro, mag, &temperature, &time))
+	{
+		return INV_ERROR;
+	}
+	
+	ax = acc[X_AXIS];
+	ay = acc[Y_AXIS];
+	az = acc[Z_AXIS];
+	
+	gx = gyro[X_AXIS];
+	gy = gyro[Y_AXIS];
+	gz = gyro[Z_AXIS];
+	
+	mx = mag[X_AXIS];
+	my = mag[Y_AXIS];
+	mz = mag[Z_AXIS];
+	
+	return INV_SUCCESS;
+}
+
 int MPU9250_DMP::updateAccel(void)
 {
 	short data[3];
 	
 	if (mpu_get_accel_reg(data, &time))
 	{
-		return INV_ERROR;		
+		return INV_ERROR;
 	}
 	ax = data[X_AXIS];
 	ay = data[Y_AXIS];
@@ -626,6 +657,10 @@ float MPU9250_DMP::calcMag(int axis)
 float MPU9250_DMP::calcQuat(long axis)
 {
 	return qToFloat(axis, 30);
+}
+float MPU9250_DMP::calcTemp(void)
+{
+	return qToFloat(temperature, 16);
 }
 	
 float MPU9250_DMP::qToFloat(long number, unsigned char q)

@@ -69,6 +69,7 @@ void loop() {
 	Serial.print("Loop: ");
 	Serial.println(i);
 	i++;
+	unsigned long t1, t2;
 	if ( imu.dataReady() )
 	{
 		// Call update() to update the imu objects sensor data.
@@ -77,7 +78,13 @@ void loop() {
 		// UPDATE_TEMPERATURE.
 		// (The update function defaults to accel, gyro, compass,
 		//  so you don't have to specify these values.)
+		t1 = micros();
 		imu.update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+		//imu.updateAllUnblocked();
+		t2 = micros();
+		Serial.print("Update() duration: ");
+		Serial.print( ((float)t2-t1)/1000.0 );
+		Serial.print(" ms\n");
 		printIMUData();
 	}
 	delay(2000);
@@ -86,29 +93,31 @@ void loop() {
 
 void printIMUData(void)
 {  
-  // After calling update() the ax, ay, az, gx, gy, gz, mx,
-  // my, mz, time, and/or temerature class variables are all
-  // updated. Access them by placing the object. in front:
+	// After calling update() the ax, ay, az, gx, gy, gz, mx,
+	// my, mz, time, and/or temerature class variables are all
+	// updated. Access them by placing the object. in front:
 
-  // Use the calcAccel, calcGyro, and calcMag functions to
-  // convert the raw sensor readings (signed 16-bit values)
-  // to their respective units.
-  float accelX = imu.calcAccel(imu.ax);
-  float accelY = imu.calcAccel(imu.ay);
-  float accelZ = imu.calcAccel(imu.az);
-  float gyroX = imu.calcGyro(imu.gx);
-  float gyroY = imu.calcGyro(imu.gy);
-  float gyroZ = imu.calcGyro(imu.gz);
-  float magX = imu.calcMag(imu.mx);
-  float magY = imu.calcMag(imu.my);
-  float magZ = imu.calcMag(imu.mz);
-  
-  Serial.println("Accel: " + String(accelX) + ", " +
-              String(accelY) + ", " + String(accelZ) + " g");
-  Serial.println("Gyro: " + String(gyroX) + ", " +
-              String(gyroY) + ", " + String(gyroZ) + " dps");
-  Serial.println("Mag: " + String(magX) + ", " +
-              String(magY) + ", " + String(magZ) + " uT");
-  Serial.println("Time: " + String(imu.time) + " ms");
-  Serial.println();
+	// Use the calcAccel, calcGyro, and calcMag functions to
+	// convert the raw sensor readings (signed 16-bit values)
+	// to their respective units.
+	float accelX = imu.calcAccel(imu.ax);
+	float accelY = imu.calcAccel(imu.ay);
+	float accelZ = imu.calcAccel(imu.az);
+	float gyroX = imu.calcGyro(imu.gx);
+	float gyroY = imu.calcGyro(imu.gy);
+	float gyroZ = imu.calcGyro(imu.gz);
+	float magX = imu.calcMag(imu.mx);
+	float magY = imu.calcMag(imu.my);
+	float magZ = imu.calcMag(imu.mz);
+	float temp = imu.calcTemp();
+
+	Serial.println("Accel: " + String(accelX) + ", " +
+			  String(accelY) + ", " + String(accelZ) + " g");
+	Serial.println("Gyro: " + String(gyroX) + ", " +
+			  String(gyroY) + ", " + String(gyroZ) + " dps");
+	Serial.println("Mag: " + String(magX) + ", " +
+			  String(magY) + ", " + String(magZ) + " uT");
+	Serial.println("Temp: " + String(temp));
+	//Serial.println("Time: " + String(imu.time) + " ms");
+	Serial.println();
 }

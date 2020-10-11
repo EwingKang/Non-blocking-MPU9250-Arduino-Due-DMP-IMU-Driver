@@ -883,9 +883,89 @@ int mpu_get_temperature(long *data, unsigned long *timestamp)
     if (timestamp)
         get_ms(timestamp);
 
-    data[0] = (long)((35 + ((raw - (float)st.hw->temp_offset) / st.hw->temp_sens)) * 65536L);
+    data[0] = (long)((21 + ((raw - (float)st.hw->temp_offset) / st.hw->temp_sens)) * 65536L);
     return 0;
 }
+
+
+/**
+ *  @brief      All data at once.
+ *  @param[out] data        Data in 
+ *  @param[out] timestamp   Timestamp in milliseconds. Null if not needed.
+ *  @return     0 if successful.
+ */
+int mpu_get_all_sensor(short *acc, short *gyro, 
+                       short *mag, long *temp, 
+					   unsigned long *timestamp)
+{
+	//total size = 22
+    //.raw_accel   = 0x3B, size = 6
+    //.temp        = 0x41, size = 2
+	//.raw_gyro    = 0x43, size = 6
+	//.raw_compass = 0x49, size = 8
+	#ifdef AK89xx_BYPASS
+		return -1;
+	#endif
+	
+	unsigned char tmp[22];
+	int offset = 0;
+	
+	if ( !(st.chip_cfg.sensors & INV_XYZ_ACCEL) ||
+		 !(st.chip_cfg.sensors) ||
+		 !(st.chip_cfg.sensors & INV_XYZ_GYRO) ||
+		 !(st.chip_cfg.sensors & INV_XYZ_COMPASS) )
+        return -1;
+	
+	// Read all data
+	if (i2c_read(st.hw->addr, st.reg->raw_accel, 22, tmp))
+        return -1;
+
+    // Accel
+    acc[0] = (tmp[0] << 8) | tmp[1];
+    acc[1] = (tmp[2] << 8) | tmp[3];
+    acc[2] = (tmp[4] << 8) | tmp[5];
+	offset += 6;
+	
+	// temperature
+    short raw;
+    raw = (tmp[0+offset] << 8) | tmp[1+offset];
+    temp[0] = (long)((21 + ((raw - (float)st.hw->temp_offset) / st.hw->temp_sens)) * 65536L);
+	offset += 2;
+	
+	// gyro
+    gyro[0] = (tmp[0+offset] << 8) | tmp[1+offset];
+    gyro[1] = (tmp[2+offset] << 8) | tmp[3+offset];
+    gyro[2] = (tmp[4+offset] << 8) | tmp[5+offset];
+	offset += 6;
+	
+	// meganeto 	
+#if defined AK8975_SECONDARY
+    /* AK8975 doesn't have the overrun error bit. */
+    if (!(tmp[0+offset] & AKM_DATA_READY))
+        return -2;
+    if ((tmp[7+offset] & AKM_OVERFLOW) || (tmp[7+offset] & AKM_DATA_ERROR))
+        return -3;
+#elif defined AK8963_SECONDARY
+    /* AK8963 doesn't have the data read error bit. */
+    if (!(tmp[0+offset] & AKM_DATA_READY) || (tmp[0+offset] & AKM_DATA_OVERRUN))
+        return -2;
+    if (tmp[7+offset] & AKM_OVERFLOW)
+        return -3;
+#endif
+    mag[0] = (tmp[2+offset] << 8) | tmp[1+offset];
+    mag[1] = (tmp[4+offset] << 8) | tmp[3+offset];
+    mag[2] = (tmp[6+offset] << 8) | tmp[5+offset];
+
+    mag[0] = ((long)mag[0] * st.chip_cfg.mag_sens_adj[0]) >> 8;
+    mag[1] = ((long)mag[1] * st.chip_cfg.mag_sens_adj[1]) >> 8;
+    mag[2] = ((long)mag[2] * st.chip_cfg.mag_sens_adj[2]) >> 8;
+
+    if (timestamp)
+        get_ms(timestamp);
+    return 0;
+}
+
+
 
 /**
  *  @brief      Read biases to the accel bias 6500 registers.

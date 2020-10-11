@@ -142,13 +142,9 @@ int I2cBus::ReadReg(uint8_t dev_addr, const uint8_t reg, unsigned int len)
 int I2cBus::UpdateReadReg()
 {
 	int rtn = 0;
-	if( (_bus_st != I2cBusStatus::BUS_ASK_WRITING) &&
-		(_bus_st != I2cBusStatus::BUS_ASK_READING)         )
+	switch(_bus_st) 
 	{
-		return -1;			// not doing ReadReg atm
-	}
-	
-	if(_bus_st == I2cBusStatus::BUS_ASK_WRITING) {
+	  case(I2cBusStatus::BUS_ASK_WRITING): {
 		if( !_i2c.TxComplete() )
 		{
 			return 1;		// tx ongoing
@@ -158,8 +154,10 @@ int I2cBus::UpdateReadReg()
 			_i2c.RecieveFrom( _curr_read_dev_addr, rx_bfr, _curr_read_len );
 			rtn = 2;		// start reading
 		}
-	}
-	if(_bus_st == I2cBusStatus::BUS_ASK_READING) {
+	    }
+	    break;
+		
+	  case(I2cBusStatus::BUS_ASK_READING): {
 		if( !_i2c.RxComplete() )
 		{
 			return 3;		// rx ongoing
@@ -168,6 +166,11 @@ int I2cBus::UpdateReadReg()
 			_bus_st = I2cBusStatus::BUS_ASK_FINISH;
 			rtn = 4;		// finished
 		}
+	    }
+		break;
+		
+	  default: 
+	    return -1;// not doing ReadReg atm
 	}
 	return rtn;
 }
