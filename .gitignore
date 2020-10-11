@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+GRTAGS
+GTAGS
+GPATH
+NppGTags.cfg
+
