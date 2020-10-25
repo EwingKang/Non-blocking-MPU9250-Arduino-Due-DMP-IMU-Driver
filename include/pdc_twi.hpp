@@ -5,13 +5,19 @@
 * Contact: f039281310@yahoo.com.tw
 * References:
 * Liscense:
+* Note:
+  For future multi-device suppor on the same Arduino Due:
+  Definition of arduino interface  macro, in 
+  .../arduino/hardware/sam/1.6.12/variants/arduino_due_x/variant.h
+      #define WIRE_INTERFACE   TWI1   <- I'm using this default one.
+      #define WIRE1_INTERFACE  TWI0   <0 @ 7pin 0 (SDA1), 71 (SCL1)
 ******************************************************************************/
 #ifdef TwoWire_h
 #error PDC_TWI is likely to conflict with Wire.h library
 #endif 
 
-#ifndef PDC_TWI_H_
-#define PDC_TWI_H_
+#ifndef PDC_TWI_HPP_
+#define PDC_TWI_HPP_
 
 #include <Arduino.h>
 
@@ -33,15 +39,26 @@ public:
 		PDC_RX_FAILED,
 		PDC_UNKOWN_FAILED
 	};
+	
+	// Constructor
+	PdcTwi()
+	{
+		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
+	}
 		
 	/****************************************************************
 							Init, Reset, End
+		Init(): return false if the bus is already initialized
 		A hard reset.
 	*****************************************************************/
-	void Init() 
+	bool Init() 
 	{
+		if(_comm_st != PdcTwoWireStatus::PDC_UNINIT)
+		{
+			return false;
+		}
 		BusReset();
-		pmc_enable_periph_clk(WIRE_INTERFACE_ID);
+		pmc_enable_periph_clk(ID_TWI1);
 		PIO_Configure(
 					   g_APinDescription[PIN_WIRE_SDA].pPort,
 					   g_APinDescription[PIN_WIRE_SDA].ulPinType,
@@ -59,11 +76,11 @@ public:
 		NVIC_SetPriority(TWI1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 3, 3));
 		NVIC_EnableIRQ(TWI1_IRQn);
 		
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;	// Disable PDC channel
-		TWI_ConfigureMaster(WIRE_INTERFACE, TWI_CLOCK, VARIANT_MCK);	// set to master mode
+		TWI1->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;	// Disable PDC channel
+		TWI_ConfigureMaster(TWI1, TWI_CLOCK, VARIANT_MCK);	// set to master mode
+		TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
 		
 		_comm_st = PdcTwoWireStatus::PDC_STDBY;
-		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
 	}
 	
 	//This function will blocked for ~15ms
@@ -79,13 +96,13 @@ public:
 		
 	void End()
 	{
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDCs
-		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+		TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDCs
+		TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
 		
 		NVIC_DisableIRQ(TWI1_IRQn);			// Disable interrupt control
 		NVIC_ClearPendingIRQ(TWI1_IRQn);
 		
-		TWI_Disable(WIRE_INTERFACE);		// This function will block for 10ms
+		TWI_Disable(TWI1);		// This function will block for 10ms
 		BusReset();
 		_comm_st = PdcTwoWireStatus::PDC_UNINIT;
 	}
@@ -102,22 +119,22 @@ public:
 			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;	
 			
 			// P.719 Figure 33-15
-			WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
-			WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
-			WIRE_INTERFACE->TWI_THR = (*data_ptr);		// start the transmission
-			WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP| TWI_IER_NACK| TWI_IER_TXRDY;
-			WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// set stop for one byte
+			TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
+			TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
+			TWI1->TWI_THR = (*data_ptr);		// start the transmission
+			TWI1->TWI_IER = TWI_IER_TXCOMP| TWI_IER_NACK| TWI_IER_TXRDY;
+			TWI1->TWI_CR = TWI_CR_STOP;		// set stop for one byte
 						
 			// interrupt enable register, this *needs* to be set AFTER THR
-			//WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP | TWI_IER_NACK;	
+			//TWI1->TWI_IER = TWI_IER_TXCOMP | TWI_IER_NACK;	
 			return;
 		}else {
 			//p.718 start PDC procedure
 			SetPdcWriteAddr(data_ptr, len);
 			SetTwiMasterWrite(dev_addr);
 			_comm_st = PdcTwoWireStatus::PDC_MULTI_TX;
-			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTEN;					// enable TX
-			WIRE_INTERFACE->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;	// interrupt enable register
+			TWI1->TWI_PTCR = TWI_PTCR_TXTEN;					// enable TX
+			TWI1->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;	// interrupt enable register
 		}
 	}
 
@@ -130,18 +147,18 @@ public:
 			_rx_ptr = data_ptr;
 			rx_ptr_rdy = false;
 			_comm_st = PdcTwoWireStatus::PDC_SINGLE_RX;
-			WIRE_INTERFACE->TWI_CR = 0;
-			WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
-			WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
-			WIRE_INTERFACE->TWI_CR = TWI_CR_START | TWI_CR_STOP;
-			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_TXCOMP;
+			TWI1->TWI_CR = 0;
+			TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
+			TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
+			TWI1->TWI_CR = TWI_CR_START | TWI_CR_STOP;
+			TWI1->TWI_IER = TWI_IER_RXRDY | TWI_IER_TXCOMP;
 		}else {
 			SetPdcReadAddr(data_ptr, len);
 			SetTwiMasterRead(dev_addr);
 			_comm_st = PdcTwoWireStatus::PDC_MULTI_RX;
-			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTEN;
-			WIRE_INTERFACE->TWI_CR = TWI_CR_START;
-			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
+			TWI1->TWI_PTCR = TWI_PTCR_RXTEN;
+			TWI1->TWI_CR = TWI_CR_START;
+			TWI1->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
 		}
 	}
 	
@@ -157,11 +174,11 @@ public:
 			_comm_st = PdcTwoWireStatus::PDC_SINGLE_TX;	
 			
 			// load transmit register
-			WIRE_INTERFACE->TWI_THR = (*data_ptr);		
+			TWI1->TWI_THR = (*data_ptr);		
 			
-			WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP| TWI_IER_NACK| TWI_IER_TXRDY;
+			TWI1->TWI_IER = TWI_IER_TXCOMP| TWI_IER_NACK| TWI_IER_TXRDY;
 			// write stop command
-			WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
+			TWI1->TWI_CR = TWI_CR_STOP;
 			// procedure: TXRDY -> TXCOMP
 			return;
 		}else {
@@ -169,9 +186,9 @@ public:
 			//p.718 start PDC procedure
 			SetPdcWriteAddr(data_ptr, len);
 			// enable TX
-			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTEN;
+			TWI1->TWI_PTCR = TWI_PTCR_TXTEN;
 			// interrupt enable register			
-			WIRE_INTERFACE->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;
+			TWI1->TWI_IER = TWI_IER_ENDTX | TWI_IER_NACK ;
 		}
 	}
 	
@@ -188,15 +205,15 @@ public:
 			rx_ptr_rdy = false;
 			_comm_st = PdcTwoWireStatus::PDC_SINGLE_RX;
 			
-			WIRE_INTERFACE->TWI_CR = TWI_CR_START | TWI_CR_STOP;
-			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_TXCOMP;
+			TWI1->TWI_CR = TWI_CR_START | TWI_CR_STOP;
+			TWI1->TWI_IER = TWI_IER_RXRDY | TWI_IER_TXCOMP;
 			//Procedure: RXRDY -> TXCOMP
 		}else {
 			SetPdcReadAddr(data_ptr, len);
 			_comm_st = PdcTwoWireStatus::PDC_MULTI_RX;
-			WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTEN;
-			WIRE_INTERFACE->TWI_CR = TWI_CR_START;
-			WIRE_INTERFACE->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
+			TWI1->TWI_PTCR = TWI_PTCR_RXTEN;
+			TWI1->TWI_CR = TWI_CR_START;
+			TWI1->TWI_IER = TWI_IER_RXRDY | TWI_IER_NACK;
 		}
 	}
 	
@@ -240,8 +257,8 @@ public:
 	*****************************************************************/
 	inline void IsrHandler() 
 	{
-		int sr = WIRE_INTERFACE->TWI_SR;
-		int rcr = WIRE_INTERFACE->TWI_RCR; // Receive Counter Register
+		int sr = TWI1->TWI_SR;
+		int rcr = TWI1->TWI_RCR; // Receive Counter Register
 		//Serial.print("isr: ");
 		//Serial.println(sr, BIN);
 		
@@ -252,24 +269,24 @@ public:
 			{
 				// failed, no ack on I2C bus
 				_comm_st = PdcTwoWireStatus::PDC_TX_FAILED;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;	// disable all interrupts
 				Serial.println("txSclNAck");
 				return;
 			} else if( sr & TWI_SR_TXCOMP) 
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;		// disable all interrupts
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;	// disable all interrupts
 				//Serial.println("txSglCmp");
 				return;
 			} else if( sr & TWI_SR_TXRDY) 
 			{
-				//WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP |  TWI_IER_NACK;
+				//TWI1->TWI_IER = TWI_IER_TXCOMP |  TWI_IER_NACK;
 				//Serial.println("txSglRdy");
 				return;
 			} else 
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_FAILED;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
 				Serial.print("txSglUkn: ");
 				Serial.println(sr);
 				return;
@@ -281,15 +298,15 @@ public:
 			{
 				// failed, no ack on I2C bus
 				_comm_st = PdcTwoWireStatus::PDC_RX_FAILED;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
 				Serial.println("txSclNAck");
 				return;
 			} 
 			if( sr & TWI_SR_RXRDY) 
 			{
 				//_comm_st = PdcTwoWireStatus::PDC_RX_SUCCESS;
-				//WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				(*_rx_ptr) = WIRE_INTERFACE->TWI_RHR;
+				//TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				(*_rx_ptr) = TWI1->TWI_RHR;
 				rx_ptr_rdy = true;
 				//Serial.println("rxSglData");
 				return;
@@ -297,8 +314,8 @@ public:
 			if( rx_ptr_rdy && (sr & TWI_SR_TXCOMP) )
 			{
 				_comm_st = PdcTwoWireStatus::PDC_RX_SUCCESS;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				(*_rx_ptr) = WIRE_INTERFACE->TWI_RHR;
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				(*_rx_ptr) = TWI1->TWI_RHR;
 				rx_ptr_rdy = true;
 				//Serial.println("rxSglComp");
 				return;
@@ -315,17 +332,17 @@ public:
 			{							
 				// No ack in addr, probably something is disconnected
 				_comm_st = PdcTwoWireStatus::PDC_TX_FAILED;
-				WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
+				TWI1->TWI_CR = TWI_CR_STOP;
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
 				Serial.println("txNAck");
 				return;
 			}
 			if( sr & TWI_SR_TXCOMP)
 			{
 				_comm_st = PdcTwoWireStatus::PDC_TX_SUCCESS;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
 				//Serial.println("txComp");
 				return;
 			}
@@ -335,9 +352,9 @@ public:
 				// p.507 [Transmit Transfer End] This flag is set when PERIPH_TCR register reaches zero and the last
 				//       data has been written into peripheral THR. It is reset by writing a non zero value in 
 				//       PERIPH_TCR or PERIPH_TNCR.
-				WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// This is necessary or SCL will hang low
-				WIRE_INTERFACE->TWI_IDR = TWI_SR_ENDTX;		// Disable PDC end isr
-				WIRE_INTERFACE->TWI_IER = TWI_IER_TXCOMP;	// so it'll trigger comp next time for multi-byte write
+				TWI1->TWI_CR = TWI_CR_STOP;		// This is necessary or SCL will hang low
+				TWI1->TWI_IDR = TWI_SR_ENDTX;		// Disable PDC end isr
+				TWI1->TWI_IER = TWI_IER_TXCOMP;	// so it'll trigger comp next time for multi-byte write
 				//Serial.println("txLast");
 				return;	
 			}
@@ -347,8 +364,8 @@ public:
 			if( sr & TWI_SR_NACK ) 
 			{	// no ack, when slave not response to initial address call
 				_comm_st = PdcTwoWireStatus::PDC_RX_FAILED;
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable pdc
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable pdc
 				Serial.println("rxNAck");
 				return;
 			}
@@ -358,9 +375,9 @@ public:
 			if( sr & TWI_IER_ENDRX ) 
 			{
 				_comm_st = PdcTwoWireStatus::PDC_RX_SUCCESS;
-				if( !_rx_stop_set)	WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;		// Stop case missed
-				WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-				WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
+				if( !_rx_stop_set)	TWI1->TWI_CR = TWI_CR_STOP;		// Stop case missed
+				TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+				TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
 				//Serial.println("rxEnd");
 				return;
 			} else 
@@ -372,7 +389,7 @@ public:
 				// p.506 Receive Counter Register is counting down
 				if( rcr <= 1) 
 				{
-					WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;
+					TWI1->TWI_CR = TWI_CR_STOP;
 					_rx_stop_set = true;
 					//Serial.println("rxLastOne");
 				}
@@ -387,11 +404,11 @@ public:
 		Serial.print("status: ");
 		Serial.print(_comm_st);
 		Serial.print(", PTSR: ");		// PDC Transfer Status Register
-		Serial.println(WIRE_INTERFACE->TWI_PTSR, BIN);
+		Serial.println(TWI1->TWI_PTSR, BIN);
 		
-		WIRE_INTERFACE->TWI_CR = TWI_CR_STOP;							// make sure things is stooping
-		WIRE_INTERFACE->TWI_IDR = WIRE_INTERFACE -> TWI_IMR;			// disable all interrupts
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
+		TWI1->TWI_CR = TWI_CR_STOP;							// make sure things is stooping
+		TWI1->TWI_IDR = TWI1 -> TWI_IMR;			// disable all interrupts
+		TWI1->TWI_PTCR = TWI_PTCR_TXTDIS | TWI_PTCR_RXTDIS;	// disable PDC
 		_comm_st = PdcTwoWireStatus::PDC_UNKOWN_FAILED;
 		return;
 	}	// IsrHandler()
@@ -414,19 +431,19 @@ private:
 	*****************************************************************/
 	static inline int SetPdcWriteAddr(uint8_t *data, uint16_t count) 
 	{
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
-		WIRE_INTERFACE->TWI_TPR = (RwReg)data;		
-		WIRE_INTERFACE->TWI_TCR = count;
-		WIRE_INTERFACE->TWI_TNPR = 0;		
-		WIRE_INTERFACE->TWI_TNCR = 0;				
+		TWI1->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
+		TWI1->TWI_TPR = (RwReg)data;		
+		TWI1->TWI_TCR = count;
+		TWI1->TWI_TNPR = 0;		
+		TWI1->TWI_TNCR = 0;				
 	}
 	static inline int SetPdcReadAddr(uint8_t *data, uint16_t count) 
 	{
-		WIRE_INTERFACE->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
-		WIRE_INTERFACE->TWI_RPR = (RwReg)data;		
-		WIRE_INTERFACE->TWI_RCR = count;
-		WIRE_INTERFACE->TWI_RNPR = 0;
-		WIRE_INTERFACE->TWI_RNCR = 0;
+		TWI1->TWI_PTCR = TWI_PTCR_RXTDIS | TWI_PTCR_TXTDIS;
+		TWI1->TWI_RPR = (RwReg)data;		
+		TWI1->TWI_RCR = count;
+		TWI1->TWI_RNPR = 0;
+		TWI1->TWI_RNCR = 0;
 	}
 	
 	/***************************************************************
@@ -436,27 +453,27 @@ private:
 	****************************************************************/
 	static inline int SetTwiMasterWrite(const uint8_t dev_addr) 
 	{
-		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
-		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
+		TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE;
+		TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
 	}
 	static inline int SetTwiMasterRead(const uint8_t dev_addr) 
 	{
-		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
-		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
+		TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_NONE | TWI_MMR_MREAD; // master read
+		TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
 	}
 	
 	static inline int SetTwiMasterWriteTo(const uint8_t dev_addr, const uint8_t reg_addr) 
 	{
-		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE;
-		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
-		WIRE_INTERFACE->TWI_IADR = TWI_IADR_IADR(reg_addr);
+		TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE;
+		TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;	// set master mode
+		TWI1->TWI_IADR = TWI_IADR_IADR(reg_addr);
 		
 	}
 	static inline int SetTwiMasterReadFrom(const uint8_t dev_addr, const uint8_t reg_addr) 
 	{
-		WIRE_INTERFACE->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE | TWI_MMR_MREAD; // master read
-		WIRE_INTERFACE->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
-		WIRE_INTERFACE->TWI_IADR = TWI_IADR_IADR(reg_addr);
+		TWI1->TWI_MMR = TWI_MMR_DADR(dev_addr) | TWI_MMR_IADRSZ_1_BYTE | TWI_MMR_MREAD; // master read
+		TWI1->TWI_CR = TWI_CR_MSEN | TWI_CR_SVDIS;
+		TWI1->TWI_IADR = TWI_IADR_IADR(reg_addr);
 	}
 	
 	
