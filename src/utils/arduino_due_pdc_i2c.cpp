@@ -19,7 +19,7 @@ IMU 9250 x.x.x
 Supported Platforms:
 - xxxxx (Arduino Due, ???? IMU)
 ******************************************************************************/
-#include "../include/arduino_due_pdc_i2c.h"
+#include "arduino_due_pdc_i2c.hpp"
 #include <i2c_bus.hpp>
 
 I2cBus i2c_bus;		// actual instance in pdc_mpu9250_dmp.cpp

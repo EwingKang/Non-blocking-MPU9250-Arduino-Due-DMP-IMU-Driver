@@ -28,8 +28,8 @@ Supported Platforms:
 ******************************************************************************/
 
 #include <i2c_bus.hpp>
-#include "../include/pdc_mpu9250_dmp.h"
-#include "../include/MPU9250_RegisterMap.h"
+#include <pdc_mpu9250_dmp.hpp>
+#include "utils/MPU9250_RegisterMap.h"
 
 extern "C" {
 #include "utils/inv_mpu.h"

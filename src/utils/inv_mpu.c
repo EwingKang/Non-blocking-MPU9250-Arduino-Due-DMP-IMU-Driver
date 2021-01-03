@@ -40,7 +40,7 @@
 #include <Arduino.h>
 #define MPU9250
 //#include "arduino_mpu9250_i2c.h"
-#include "../../include/arduino_due_pdc_i2c.h"
+#include "arduino_due_pdc_i2c.hpp"
 #include "arduino_mpu9250_clk.h"
 #define i2c_write(a, b, c, d) arduino_pdci2c_blocked_write(a, b, c, d)
 #define i2c_read(a, b, c, d)  arduino_pdci2c_blocked_read(a, b, c, d)

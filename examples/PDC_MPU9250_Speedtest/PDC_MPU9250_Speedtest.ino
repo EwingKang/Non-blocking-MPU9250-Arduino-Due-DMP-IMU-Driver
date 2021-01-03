@@ -10,8 +10,8 @@
 ******************************************************************************/
 
 #include <Arduino.h>
-#include "include/pdc_mpu9250_dmp.h"
-#include "include/pdc_bmp280.hpp"
+#include <pdc_mpu9250_dmp.hpp>
+#include <pdc_bmp280.hpp>
 
 //#define BLOCKED_LOOP; // Comment out this line for realtime version
 
@@ -151,7 +151,7 @@ void loop() {
 			t2 = micros();
 			if(update_res == 0)
 			{
-				Serial.print("Bpend: " + String(t2-t1) + "us\n");
+				Serial.print("Spent: " + String(t2-t1) + "us\n");
 				baro_sum_us += t2-t1;
 			}else if(update_res >= 1 )
 			{

@@ -19,7 +19,7 @@
  *  BSD license, all text above must be included in any redistribution
  */
 #include "Arduino.h"
-#include "../include/pdc_bmp280.hpp"
+#include <pdc_bmp280.hpp>
 
 
 /************************************************
