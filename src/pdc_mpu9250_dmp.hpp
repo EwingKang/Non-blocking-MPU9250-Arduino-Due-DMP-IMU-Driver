@@ -39,8 +39,8 @@ Supported Platforms:
 
 // Include the Invensense MPU9250 driver and DMP keys:
 extern "C" {
-#include "../src/utils/inv_mpu.h"
-#include "../src/utils/inv_mpu_dmp_motion_driver.h"
+#include "utils/inv_mpu.h"
+#include "utils/inv_mpu_dmp_motion_driver.h"
 }
 
 typedef int inv_error_t;
@@ -464,6 +464,8 @@ public:
 	* Convert 16-bit signed magnetometer value to microtesla (uT)
 	*                 ---------- calcQuat() ---------- 
 	* Convert Q30-format quaternion to a vector between +/- 1
+	*                 ---------- calcTemp() ---------- 
+	* Convert Q16-format temperature to temperature member variable(deg-C) 
 	**************************************************************************/
 	float calcAccel(int axis);
 	float calcGyro(int axis);

@@ -26,6 +26,8 @@ pitch	KEYWORD1
 roll	KEYWORD1
 yaw	KEYWORD1
 heading	KEYWORD1
+is_reading	KEYWORD1
+start_us	KEYWORD1
 
 ################################################################################
 # Methods and Functions (KEYWORD2)
@@ -48,11 +50,15 @@ setCompassSampleRate	KEYWORD2
 getCompassSampleRate	KEYWORD2
 lowPowerAccel	KEYWORD2
 dataReady	KEYWORD2
+
 update	KEYWORD2
 updateAccel	KEYWORD2
 updateGyro	KEYWORD2
 updateCompass	KEYWORD2
 updateTemperature	KEYWORD2
+updateAll	KEYWORD2
+updateAllUnblocked	KEYWORD2
+
 getFifoConfig	KEYWORD2
 configureFifo	KEYWORD2
 resetFifo	KEYWORD2
@@ -85,10 +91,12 @@ dmpGetPedometerSteps	KEYWORD2
 dmpSetPedometerSteps	KEYWORD2
 dmpGetPedometerTime	KEYWORD2
 dmpSetPedometerTime	KEYWORD2
+
 calcAccel	KEYWORD2
 calcGyro	KEYWORD2
 calcMag	KEYWORD2
 calcQuat	KEYWORD2
+calcTemp	KEYWORD2
 qToFloat	KEYWORD2
 computeEulerAngles	KEYWORD2
 computeCompassHeading	KEYWORD2
