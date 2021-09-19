@@ -26,9 +26,10 @@ SparkFun 9DoF Razor IMU M0
 Supported Platforms:
 - ATSAMD21 (Arduino Zero, SparkFun SAMD21 Breakouts)
 ******************************************************************************/
-#include "../include/pdc_mpu9250_dmp.h"
-#include "../include/MPU9250_RegisterMap.h"
-#include "../include/i2c_bus.hpp"
+
+#include <i2c_bus.hpp>
+#include <pdc_mpu9250_dmp.hpp>
+#include "utils/MPU9250_RegisterMap.h"
 
 extern "C" {
 #include "utils/inv_mpu.h"
@@ -48,6 +49,7 @@ MPU9250_DMP::MPU9250_DMP()
 	_mSense = 6.665f; // Constant - 4915 / 32760
 	_aSense = 0.0f;   // Updated after accel FSR is set
 	_gSense = 0.0f;   // Updated after gyro FSR is set
+	timeout_us = 1000; // Default to 1 ms
 	is_reading = false;
 }
 
@@ -56,7 +58,6 @@ inv_error_t MPU9250_DMP::begin(void)
 	inv_error_t result;
     struct int_param_s int_param;
 	
-	//Wire.begin(); //EWING TODO
 	i2c_bus.Begin();
 	
 	Serial.println("MPU init");
@@ -64,7 +65,7 @@ inv_error_t MPU9250_DMP::begin(void)
 	
 	if (result)
 		return result;
-	//accelerometer = i2c_bus.Add_Device(ADXL345);
+	
 	Serial.println("Set bypass");
 	mpu_set_bypass(1); // Place all slaves (including compass) on primary bus
 	
@@ -354,7 +355,18 @@ inv_error_t MPU9250_DMP::updateAll()
 	return INV_SUCCESS;
 }
 
+inv_error_t MPU9250_DMP::setNonblockTimeout(const unsigned long & timeout_us)
+{
+	this->timeout_us = timeout_us;
+	return INV_SUCCESS;
+}
+
 inv_error_t MPU9250_DMP::updateAllUnblocked()
+{
+	return updateAllUnblocked(micros());
+}
+
+inv_error_t MPU9250_DMP::updateAllUnblocked(const unsigned long & now_us)
 {
 	short acc[3];
 	short gyro[3];
@@ -363,17 +375,17 @@ inv_error_t MPU9250_DMP::updateAllUnblocked()
 	if(!is_reading) {
 		if(mpu_ask_all_sensors())
 			return INV_ERROR;
-		start_us = micros();
+		start_us = now_us;
 		is_reading = true;
 		return INV_PENDING;
 	}
 	else {
 		int ret = i2c_bus.UpdateReadReg();
-		if(ret >= 1 && ret < 4 && (micros() - start_us)< 1000)
+		if(ret >= 1 && ret < 4 && (now_us - start_us) < timeout_us)
 			return INV_PENDING;	// still spining
 		
 		else if( ret != 4 )  
-			return INV_ERROR;	// timeout
+			return INV_TIMEOUT;	// timeout
 		
 		else {
 			// success, Fetch data

@@ -10,11 +10,13 @@
 ******************************************************************************/
 
 #include <Arduino.h>
-#include "include/pdc_mpu9250_dmp.h"
+#include <pdc_mpu9250_dmp.hpp>
+#include <pdc_bmp280.hpp>
 
 //#define BLOCKED_LOOP; // Comment out this line for realtime version
 
 MPU9250_DMP imu;
+BMP280 barometer;
 void setup() {
 	SerialUSB.begin(115200);
 	Serial.begin(115200);
@@ -34,7 +36,7 @@ void setup() {
 		}
 	}
 
-	Serial.println("Set sensor");
+	Serial.println("Set IMU");
 	imu.setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
 
 	// Use setGyroFSR() and setAccelFSR() to configure the
@@ -60,11 +62,15 @@ void setup() {
 	// set using the setCompassSampleRate() function.
 	// This value can range between: 1-100Hz
 	imu.setCompassSampleRate(10); // Set mag rate to 10Hz
+	
+	delay(100);
+	Serial.println("Set barometer");
+	if(	!barometer.begin()) { Serial.println("FAILED!"); }
 }
 
 int i=0;
-unsigned long now_us, last_us = 0, imu_us=0;
-unsigned long imu_sum_us=0;
+unsigned long now_us, last_us = 0, imu_us = 0, baro_us = 0;
+unsigned long imu_sum_us=0, baro_sum_us = 0;
 void loop() {
 	now_us = micros();
 
@@ -114,18 +120,17 @@ void loop() {
 		if(now_us - imu_us > 1000000)
 		{
 			unsigned long t1, t2;
-			int update_res;
 			t1 = micros();
-			update_res = imu.updateAllUnblocked();
+			int update_res = imu.updateAllUnblocked();
 			t2 = micros();
 			if(update_res == INV_PENDING)
 			{
-				Serial.print("Pend: " + String(t2-t1) + "us\n");
+				//Serial.print("Ipend: " + String(t2-t1) + "us\n");
 				imu_sum_us += t2-t1;
 			}else if(update_res == INV_SUCCESS)
 			{
 				imu_sum_us += t2-t1;
-				Serial.print("Success: " + String(t2-t1) + 
+				Serial.print("IMU Success: " + String(t2-t1) + 
 							 "us, total: " + String(imu_sum_us) + "us\n");
 				printIMUData();
 				imu_sum_us = 0;
@@ -136,6 +141,38 @@ void loop() {
 				imu_us = now_us;
 			}
 		}
+		
+		// 1 Hz since last success
+		if(now_us+500000 - baro_us > 1000000)
+		{
+			unsigned long t1, t2;
+			t1 = micros();
+			int update_res = barometer.UpdateAllNonBlocked();
+			t2 = micros();
+			if(update_res == 0)
+			{
+				Serial.print("Spent: " + String(t2-t1) + "us\n");
+				baro_sum_us += t2-t1;
+			}else if(update_res >= 1 )
+			{
+				baro_sum_us += t2-t1;
+				Serial.print("Baro success: " + String(t2-t1) + 
+							 "us, total: " + String(baro_sum_us) + "us\n");
+				float p, t, alt;
+				barometer.GetData( &p, &t, &alt);
+				Serial.println("P (pa):   " + String(p) +
+							 ", T (degC):   " + String(t) +
+							 ", A (m):   " + String(alt) );
+				Serial.println();
+				baro_sum_us = 0;
+				baro_us = now_us+500000;
+			}else
+			{
+				Serial.println("Baro update error");
+				baro_us = now_us+500000;
+			}
+		}
+		
 		last_us = now_us;
 	}
 #endif

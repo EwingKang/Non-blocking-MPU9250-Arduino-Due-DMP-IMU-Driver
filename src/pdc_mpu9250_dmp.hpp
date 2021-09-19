@@ -39,14 +39,15 @@ Supported Platforms:
 
 // Include the Invensense MPU9250 driver and DMP keys:
 extern "C" {
-#include "../src/utils/inv_mpu.h"
-#include "../src/utils/inv_mpu_dmp_motion_driver.h"
+#include "utils/inv_mpu.h"
+#include "utils/inv_mpu_dmp_motion_driver.h"
 }
 
 typedef int inv_error_t;
 #define INV_SUCCESS 0
 #define INV_ERROR 0x20
 #define INV_PENDING 0x30
+#define INV_TIMEOUT 0x40
 
 enum t_axisOrder {
 	X_AXIS, // 0
@@ -93,6 +94,7 @@ public:
 
 	bool is_reading;
 	unsigned long start_us;
+	unsigned long timeout_us;  // Default to 1 ms in constructor
 	
 	MPU9250_DMP();
 	
@@ -242,6 +244,16 @@ public:
 	inv_error_t updateCompass(void);
 	inv_error_t updateTemperature(void);
 	inv_error_t updateAll(void);
+	
+	/**************************************************************************
+	*                 --- Non-blocking update functions ---
+	* It is recommanded to call updateAllUnblocked() with a micros() input,
+	* since micros() function have a higher cost then millis() function. You 
+	* may want to acquire your own timer at the start of each loop.
+	* Output: INV_SUCCESS (0) on success, otherwise error
+	**************************************************************************/
+	inv_error_t setNonblockTimeout(const unsigned long & timeout_us);
+	inv_error_t updateAllUnblocked(const unsigned long & now_us);
 	inv_error_t updateAllUnblocked(void);
 	
 	/**************************************************************************
@@ -464,6 +476,8 @@ public:
 	* Convert 16-bit signed magnetometer value to microtesla (uT)
 	*                 ---------- calcQuat() ---------- 
 	* Convert Q30-format quaternion to a vector between +/- 1
+	*                 ---------- calcTemp() ---------- 
+	* Convert Q16-format temperature to temperature member variable(deg-C) 
 	**************************************************************************/
 	float calcAccel(int axis);
 	float calcGyro(int axis);
