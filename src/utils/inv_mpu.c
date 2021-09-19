@@ -992,6 +992,11 @@ int mpu_ask_all_sensors()
 
 /**
  *  @brief      Send request for read all data at once.
+ *              For 22 bytes of data, we need an additional device address write,
+ *              a register write, and a reading header. This sums up to 25 packets
+ *              of data. With each packet having a acking that sums up to 9 bits. 
+ *              For 400KHz I2C communication, that sums up to a communication time
+ *              of 562.5 microseconds
  *  @return     0 if successful.
  */
 int mpu_hear_all_sensors(short *acc, short *gyro, 

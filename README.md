@@ -4,17 +4,28 @@ This project reduces the communication time of a publicly available MPU9250 MPU 
 ## Background
 The default Wire library in Arduino always reads and writes to the I2C bus in a blocking fashion. The behavior is adapted for almost all MPU IMU driver for Arduino I can find online.  However, the communication can take up to 1ms for a MPU9250 simple sensor read. This is a very long time for higher-performance chip such as ATSAM3X and is often critical for time-sensitive application such as robotic control. Further more, the Wire library on Arduino Due is somewhat unstable, and will sometimes stuck without returning if the I2C bus hangs at the last transmission bit.  
 To resolve the issue, the ATMEL MCU architecture come to the rescue. The chip ATSAM3X used in the Arduino Due came with a hardware I2C controller (they call it the two wire interface, or TWI for legal reasons). This hardware controller can handle the I2C communication all by itself even the complicated "Repeated Start" process during slave read communication. This functionality of hardware controlled communication is often refered as DMA, or "Diret Memory Access". And the ATMEL names the hardware "Peripheral DMA Controller", or PDC on the two wire interface.  
+For a 
+
+## Performance
+The default behavior for a MPU-9250 full IMU sensor read (accelerometer, gyroscope, magnetometer, and temperature), that requires 25 packet exchange between I2C master and slave device, requires 562.5 microseconds of I2C communication time. Actual measurement of the function often exceeds 1 ms due to overheads caused by the library.
+With this library, the CPU time spent within the function reduced to below 23 microseconds. Thats 1/40 of the original time required.  
+This also make multiple sensor across different interface (e.g, I2C, serial) with accurate timestamping possible.
+Also, this library enables maximum read rate of MPU-9250 of 1KHz full-suite read rate, which default library often crashes du to super heavy CPU-TWI loading. You can check the [MPU9250_PDC_HiSpdInterrupt.ino](example/MPU9250_PDC_HiSpdInterrupt.ino) in the example directory. 
+
+**Note:** Transmission qually matters a lot if I2C is communicating at maximum rate of 1kHz. Some of the cables I have (~25cm) will always crash the communication after few dozens of seconds. Try to use shorter ( < 5cm), higher quality wires with lower resistance and better contact.
   
 ## Installation
 1. Arduino IDE: [Linux](https://www.arduino.cc/en/guide/linux), [Windows]()
+2. Install the dependency: [Due_I2C_PDC](https://github.com/EwingKang/Due_I2C_PDC)
 2. In IDE Tools->Board->Board manager, search "due" and install the Arduino SAM Boards (32-bit Cortex M3)
-3. Change board to Arduinoi Due (programming port)
-4. Clone this project 
+3. Change board to Arduino Due (programming port)
+4. Clone this project **into your library** (recommanding name: due_pdc_imu)
     ```
-    cd ~/Arduino/
-    git clone https://github.com/EwingKang/arduino_pdc_i2c.git
+    cd ~/Arduino/library/
+    git clone https://github.com/EwingKang/Non-blocking-MPU9250-Arduino-Due-DMP-IMU-Driver.git due_pdc_imu
     ```
-5. Build the project with IDE
+5. Got to Arduino IDE, select File -> examples -> Due PDC MPU-9250 DMP library -> MPU9250_PDC_HiSpdInterrupt
+6. Build the example with the IDE
 
 ## Dev plan
 Not in particular order
@@ -23,8 +34,14 @@ Not in particular order
 - [ ] Remove all Serial.print within lib
 - [x] Access guards for half-duplex dependent on status
 - [x] Comm queue? buffers? (use DMA copy?)
+- [x] High speed example for MPU 9250
+- [ ] Simultaneous high speed communication with BMP280
 
-## Changelog
+## Changelog  
+#### v1.1
+  - Add interface to the non-blocking read function: updateAllUnblocked() now accepts external micros() clock to further speed the code up.
+  - Add MPU9250_PDC_HiSpdInterrupt.ino testing file for 1kHz communication
+  - Add testing screenshot
 #### v1.0
   Complete the non-blocking communication between Arduino Due and MPU9250 IMU.
   - Main .ino code
