@@ -104,7 +104,6 @@ enum class ImuStateMachine
 volatile ImuStateMachine imu_stmh;
 volatile bool itrp_when_reading = false;
 volatile unsigned long itrp_imu_us = 0;
-volatile int tick = 0;
 
 int imu_data_cnt=0;
 int imu_err_cnt = 0, last_print_imu_err_cnt = 0;
@@ -167,33 +166,6 @@ void loop() {
 	if(now_us - last_us > 100)
 	{
 		// Super fast loop here @10,000 Hz
-		
-		// 1 Hz since last success
-		if(now_us - imu_us > 1000000)
-		{
-			unsigned long t1, t2;
-			t1 = micros();
-			int 
-			t2 = micros();
-			if(update_res == INV_PENDING)
-			{
-				//Serial.print("Ipend: " + String(t2-t1) + "us\n");
-				imu_sum_us += t2-t1;
-			}else if(update_res == INV_SUCCESS)
-			{
-				imu_sum_us += t2-t1;
-				Serial.print("IMU Success: " + String(t2-t1) + 
-							 "us, total: " + String(imu_sum_us) + "us\n");
-				printIMUData();
-				imu_sum_us = 0;
-				imu_us = now_us;
-			}else
-			{
-				Serial.println("Update error");
-				imu_us = now_us;
-			}
-		}
-		/
 		// 1 Hz since last success
 		if(now_us+500000 - baro_us > 1000000)
 		{
@@ -269,5 +241,4 @@ void ImuIntRising()
 		return; // Do not set data ready
 	}
 	imu_stmh = ImuStateMachine::ISM_DATARDY;
-	tick++;
 }
