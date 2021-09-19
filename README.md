@@ -10,7 +10,7 @@ For a
 The default behavior for a MPU-9250 full IMU sensor read (accelerometer, gyroscope, magnetometer, and temperature), that requires 25 packet exchange between I2C master and slave device, requires 562.5 microseconds of I2C communication time. Actual measurement of the function often exceeds 1 ms due to overheads caused by the library.
 With this library, the CPU time spent within the function reduced to below 23 microseconds. Thats 1/40 of the original time required.  
 This also make multiple sensor across different interface (e.g, I2C, serial) with accurate timestamping possible.
-Also, this library enables maximum read rate of MPU-9250 of 1KHz full-suite read rate, which default library often crashes du to super heavy CPU-TWI loading. You can check the [MPU9250_PDC_HiSpdInterrupt.ino](example/MPU9250_PDC_HiSpdInterrupt.ino) in the example directory. 
+Also, this library enables maximum read rate of MPU-9250 of 1KHz full-suite read rate, which default library often crashes du to super heavy CPU-TWI loading. You can check the [MPU9250_PDC_HiSpdInterrupt.ino](examples/MPU9250_PDC_HiSpdInterrupt/MPU9250_PDC_HiSpdInterrupt.ino) in the example directory. 
 
 **Note:** Transmission qually matters a lot if I2C is communicating at maximum rate of 1kHz. Some of the cables I have (~25cm) will always crash the communication after few dozens of seconds. Try to use shorter ( < 5cm), higher quality wires with lower resistance and better contact.
   
